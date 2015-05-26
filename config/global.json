@@ -1,0 +1,16 @@
+{
+  "global": {
+    "parseVersion": "1.4.2"
+  },
+  "applications": {
+    "Test Database": {
+      "applicationId": "appID",
+      "masterKey": "masterKey",
+      "mailgunDomain": "mailgun@example.com",
+      "mailgunKey": "mailgunKey"
+    },
+    "_default": {
+      "link": "Test Database"
+    }
+  }
+}
