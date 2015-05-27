@@ -27,7 +27,8 @@ Parse.Cloud.define("emailUsers",
           // Create local mailgun cloud instance due to callback scope
           // we gon in deep
           var Mailgun = require("mailgun");
-          // TODO: Initialize mailgun instance with keys from config/global.json
+          var mg_keys = require("cloud/keys");
+          Mailgun.initialize(mg_keys.mailgunDomain, mg_keys.mailgunKey);
 
           // Create email object for sending
           var email = {
