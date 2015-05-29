@@ -1,7 +1,13 @@
 module.exports = {} // Parse cloud definitions do not need to be exported
 
 
-// Mailgun functions
+/*                   *\
+ * ***************** *
+ * ***************** *
+ * Mailgun functions *
+ * ***************** *
+ * ***************** *
+\*                   */
 Parse.Cloud.define("validateEmail",
   // Checks if email is valid and can be sent to
   //    @email_address: potentially valid email address
@@ -56,5 +62,40 @@ Parse.Cloud.define("emailUsers",
         }
       }
     );
+  }
+);
+
+Parse.Cloud.define("emailCreateWebHook",
+  // Initialize and create all webhook events on Mailgun
+  function(req, res) {
+    var all_keys = require("cloud/keys");
+    var  ps_keys = all_keys.parse;
+    var  mg_keys = all_keys.mailgun;
+
+    for(var hook_key in mg_keys.webhooks) {
+      Parse.Cloud.httpRequest(
+        {
+          method: "POST",
+          body:
+            {
+              id: hook_key,
+              url: "https://" + ps_keys.baseURL +
+                   "/" + mg_keys.webhooks[hook_key]
+            },
+          url:
+            // POST https://api:{mgKey}@api.mailgun.net/v3/domains/{domainName}/webhooks
+            "https://api:" + mg_keys.secretKey + "@" + mg_keys.baseURL +
+            "/" + mg_keys.domainURL + "/webhooks",
+          success: function(httpRes) {
+            console.log(httpRes.message, httpRes.url);
+            res.success(true);
+          },
+          error: function(httpRes) {
+            console.error(httpRes.message);
+            res.error(true);
+          }
+        }
+      );
+    }
   }
 );
