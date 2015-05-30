@@ -112,10 +112,13 @@ Parse.Cloud.define("saveEmail",
     var Emails = Parse.Object.extend("Emails");
     var emails = new Emails();
 
+    // Strip < and > from message
+    var stripped_message_id = req.params.message_id.slice(1, -1);
+
     // Save email into Emails
     emails.save(
       {
-        "messageId": req.params.message_id,
+        "messageId": stripped_message_id,
         "templateId":
           {
                "__type": "Pointer",
