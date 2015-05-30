@@ -17,13 +17,13 @@ app.post("/testEmailHook", routes.testEmailHook);
 
 // Mailgun webhook routes
 app.post("/" + mg_webhooks["onboard"], routes[mg_webhooks["onboard"]]);
-app.post("/" + mg_webhooks["bounce"],  routes[mg_webhooks["bounce"]]);
-app.post("/" + mg_webhooks["deliver"], routes[mg_webhooks["deliver"]]);
-app.post("/" + mg_webhooks["drop"],    routes[mg_webhooks["drop"]]);
+app.post("/" + mg_webhooks["bounced"],  routes[mg_webhooks["bounced"]]);
+app.post("/" + mg_webhooks["delivered"], routes[mg_webhooks["delivered"]]);
+app.post("/" + mg_webhooks["dropped"],    routes[mg_webhooks["dropped"]]);
 app.post("/" + mg_webhooks["spam"],    routes[mg_webhooks["spam"]]);
-app.post("/" + mg_webhooks["click"],   routes[mg_webhooks["click"]]);
-app.post("/" + mg_webhooks["open"],    routes[mg_webhooks["open"]]);
-app.post("/" + mg_webhooks["unsubscribe"], routes[mg_webhooks["unsubscribe"]]);
+app.post("/" + mg_webhooks["clicked"],   routes[mg_webhooks["clicked"]]);
+app.post("/" + mg_webhooks["opened"],    routes[mg_webhooks["opened"]]);
+app.post("/" + mg_webhooks["unsubscribed"], routes[mg_webhooks["unsubscribed"]]);
 
 // Attach the Express app to Cloud Code.
 app.listen();

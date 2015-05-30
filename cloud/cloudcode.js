@@ -54,7 +54,7 @@ Parse.Cloud.define("emailUsers",
 
           return Parse.Cloud.run("saveEmail",
             {
-              message_id: httpRes.data.id,
+              message_id: httpRes.data.id.slice(1, -1),
               template_id: req.params.template_id
             }
           );
@@ -112,19 +112,36 @@ Parse.Cloud.define("saveEmail",
     var Emails = Parse.Object.extend("Emails");
     var emails = new Emails();
 
-    // Strip < and > from message
-    var stripped_message_id = req.params.message_id.slice(1, -1);
-
     // Save email into Emails
     emails.save(
       {
-        "messageId": stripped_message_id,
+        "messageId": req.params.message_id,
         "templateId":
           {
                "__type": "Pointer",
             "className": "EmailTemplates",
              "objectId": req.params.template_id
-          }
+          },
+        "events": {
+          "bounced":      false,
+          "delivered":    false,
+          "dropped":      false,
+          "spam":         false,
+          "clicked":      false,
+          "opened":       false,
+          "unsubscribed": false
+        },
+        "metadata": {
+          "ip":          undefined,
+          "country":     undefined,
+          "region":      undefined,
+          "city":        undefined,
+          "user-agent":  undefined,
+          "device-type": undefined,
+          "client-type": undefined,
+          "client-name": undefined,
+          "client-os":   undefined
+        }
       }
     ).then(
       function(email) {
@@ -135,5 +152,73 @@ Parse.Cloud.define("saveEmail",
         res.error("Email could be not be saved.");
       }
     );
+  }
+);
+
+Parse.Cloud.define("updateEmailEvent",
+  // Update an email with data from webhook
+  //    @body: Post event's body
+  function(req, res) {
+    var body = req.params.body;
+    if(body["body"] !== undefined) { body = body["body"]; }
+
+    if(body["message-id"] !== undefined) {
+      body["Message-Id"] = body["message-id"]; // More inconsistency
+    } else {
+      // Slice off < and > for delivery webhook
+      body["Message-Id"] = body["Message-Id"].slice(1, -1);
+    }
+
+    // Locate email with message_id
+    var Emails = Parse.Object.extend("Emails");
+    var query = new Parse.Query(Emails);
+    query.equalTo("messageId", body["Message-Id"]);
+
+    query.first()
+      .then(
+        function(retval) {
+          // Flag event as true
+          var event_obj = retval.get("events");
+          event_obj[body["event"]] = true;
+          retval.set("events", event_obj);
+
+          if(body["event"] == "delivered") {
+            // Set recipient
+            retval.set("recipient", body["recipient"]);
+            // TODO: Set timestamp
+            // retval.set("timeSent", body["timestamp"]);
+          }
+
+          // Populate metadata if applicable
+          if(body["event"] == "clicked" || body["event"] == "opened") {
+            var meta_obj = retval.get("metadata");
+            meta_obj["ip"]          = body["ip"];
+            meta_obj["country"]     = body["country"];
+            meta_obj["region"]      = body["region"];
+            meta_obj["city"]        = body["city"];
+            meta_obj["user-agent"]  = body["user-agent"];
+            meta_obj["device-type"] = body["device-type"];
+            meta_obj["client-type"] = body["client-type"];
+            meta_obj["client-name"] = body["client-name"];
+            meta_obj["client-os"]   = body["client-os"];
+
+            if(body["event"] == "clicked") {
+              meta_obj["url"] = body["url"];
+              // TODO: Set timestamp
+              // retval.set("timeOpened", body["timestamp"]);
+            }
+            retval.set("metadata", meta_obj);
+          }
+
+          return retval.save();
+        }
+      ).then(
+        function(retval) {
+          res.success("Event " + body["event"] + " flagged.");
+        },
+        function(retval, err) {
+          res.error("Could not flag event " + body["event"] + ".");
+        }
+      );
   }
 );
