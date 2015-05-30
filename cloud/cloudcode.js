@@ -22,20 +22,19 @@ Parse.Cloud.define("emailUsers",
   //    @user_email: array of email addresses
   //    @template_id:  ID of template being used
   function(req, res) {
+    var Mailgun = require("mailgun");
+    var all_keys = require("cloud/keys");
+    var  mg_keys = all_keys.mailgun;
+    Mailgun.initialize(mg_keys.domainURL, mg_keys.secretKey);
+
     // Set up EmailTemplates queries
     var EmailTemplates = Parse.Object.extend("EmailTemplates");
     var query = new Parse.Query(EmailTemplates);
 
     // Look for requested email template
-    query.get(req.params.template_id,
-      {
-        success: function(retval) {
-          // Create local mailgun cloud instance due to callback scope
-          // we gon in deep
-          var Mailgun = require("mailgun");
-          var mg_keys = require("cloud/keys");
-          Mailgun.initialize(mg_keys.mailgunDomain, mg_keys.mailgunKey);
-
+    query.get(req.params.template_id)
+      .then(
+        function(retval) { // query for email template success
           // Create email object for sending
           var email = {
             to:      req.params.user_email,
@@ -45,23 +44,28 @@ Parse.Cloud.define("emailUsers",
           };
 
           // Send email object
-          Mailgun.sendEmail(email,
+          return Mailgun.sendEmail(email);
+        }
+      ).then(
+        function(httpRes) { // Email sent success
+          // TODO: Add email to Emails for tracking
+          console.log(httpRes.data.message);
+
+          return Parse.Cloud.run("saveEmail",
             {
-              success: function(httpRes) {
-                // TODO: Add email to Emails for tracking
-                res.success("Email sent.");
-              },
-              error: function(httpRes) {
-                res.error("Email not sent.");
-              }
+              message_id: httpRes.data.id,
+              template_id: req.params.template_id
             }
           );
-        },
-        error: function(object, error) {
-          res.error("Could not find requested email template");
         }
-      }
-    );
+      ).then( // Parse function saveEmail success
+        function(retval) {
+          res.success(retval);
+        },
+        function(err) { // Error propagation
+          res.error(err);
+        }
+      );
   }
 );
 
@@ -97,5 +101,37 @@ Parse.Cloud.define("emailCreateWebHook",
         }
       );
     }
+  }
+);
+
+
+Parse.Cloud.define("saveEmail",
+  // Save email into Emails for tracking
+  //    @message_id: returned when sending email from mailgun
+  //    @template_id:  Parse object to template
+  function(req, res) {
+    var Emails = Parse.Object.extend("Emails");
+    var emails = new Emails();
+
+    // Save email into Emails
+    emails.save(
+      {
+        "messageId": req.params.message_id,
+        "templateId":
+          {
+               "__type": "Pointer",
+            "className": "EmailTemplates",
+             "objectId": req.params.template_id
+          }
+      }
+    ).then(
+      function(email) {
+        //Object saved successfully
+        res.success("Email saved!");
+      },
+      function(email, error) {
+        res.error("Email could be not be saved.");
+      }
+    );
   }
 );
