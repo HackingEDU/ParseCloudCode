@@ -10,6 +10,7 @@ module.exports = {
     "domainURL": "mailgunDomainName",
     "secretKey": "secretKey",
     "webhooks": {
+      "onboard":      "o29d7e29bb8e3b23cc2691f541291d75a",
       "bounce":       "b8749c86de3f73c94befcb82cb0245410",
       "deliver":      "d788aa8742da6cd466eeb292503ce9f19",
       "drop":         "d51604f82abcd8d1c1d177d78e83e4b27",

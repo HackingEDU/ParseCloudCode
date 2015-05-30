@@ -36,12 +36,13 @@ Parse.Cloud.define("emailUsers",
       .then(
         function(retval) { // query for email template success
           // Create email object for sending
-          var email = {
-            to:      req.params.user_email,
-            from:    "domain@example.com",
-            subject: retval.get("subject"),
-            html:    retval.get("html")
-          };
+          var email =
+            {
+              to:      req.params.user_email,
+              from:    "domain@example.com",
+              subject: retval.get("subject"),
+              html:    retval.get("html")
+            };
 
           // Send email object
           return Mailgun.sendEmail(email);
@@ -91,11 +92,9 @@ Parse.Cloud.define("emailCreateWebHook",
             "https://api:" + mg_keys.secretKey + "@" + mg_keys.baseURL +
             "/" + mg_keys.domainURL + "/webhooks",
           success: function(httpRes) {
-            console.log(httpRes.message, httpRes.url);
             res.success(true);
           },
           error: function(httpRes) {
-            console.error(httpRes.message);
             res.error(true);
           }
         }
