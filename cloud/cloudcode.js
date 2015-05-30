@@ -72,34 +72,34 @@ Parse.Cloud.define("emailUsers",
 
 Parse.Cloud.define("emailCreateWebHook",
   // Initialize and create all webhook events on Mailgun
+  //    @hook_key
+  //    @hook_url
   function(req, res) {
-    var all_keys = require("cloud/keys");
-    var  ps_keys = all_keys.parse;
-    var  mg_keys = all_keys.mailgun;
+    var ps_keys = require("cloud/keys").parse;
+    var mg_keys = require("cloud/keys").mailgun;
 
-    for(var hook_key in mg_keys.webhooks) {
-      Parse.Cloud.httpRequest(
-        {
-          method: "POST",
-          body:
-            {
-              id: hook_key,
-              url: "https://" + ps_keys.baseURL +
-                   "/" + mg_keys.webhooks[hook_key]
-            },
-          url:
-            // POST https://api:{mgKey}@api.mailgun.net/v3/domains/{domainName}/webhooks
-            "https://api:" + mg_keys.secretKey + "@" + mg_keys.baseURL +
-            "/" + mg_keys.domainURL + "/webhooks",
-          success: function(httpRes) {
-            res.success(true);
+    // POST https://api:{mgKey}@api.mailgun.net/v3/domains/{domainName}/webhooks
+    var mg_url = "https://api:" + mg_keys.secretKey + "@" + mg_keys.baseURL +
+                 "/" + mg_keys.domainURL + "/webhooks";
+    var wb_url = "https://" + ps_keys.baseURL + "/" + req.params.hook_url;
+
+    Parse.Cloud.httpRequest(
+      {
+        method: "POST",
+        body:
+          {
+            id: req.params.hook_key,
+            url: wb_url
           },
-          error: function(httpRes) {
-            res.error(true);
-          }
+        url: mg_url,
+        success: function(httpRes) {
+          res.success(wb_url);
+        },
+        error: function(httpRes) {
+          res.error(false);
         }
-      );
-    }
+      }
+    );
   }
 );
 
@@ -160,6 +160,7 @@ Parse.Cloud.define("updateEmailEvent",
   //    @body: Post event's body
   function(req, res) {
     var body = req.params.body;
+    // Dumb Mailgun inconsistency sh**
     if(body["body"] !== undefined) { body = body["body"]; }
 
     if(body["message-id"] !== undefined) {
