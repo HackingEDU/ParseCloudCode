@@ -63,13 +63,13 @@ module.exports.initializeHooks = function(req, res) {
         success: function(retval) {
           --ajaxCalls;
           if(ajaxCalls <= 0) {
-            res.send(200);
+            res.send(200).send();
           }
         },
         error: function(err) {
           --ajaxCalls;
           if(ajaxCalls <= 0) {
-            res.send(406);
+            res.send(406).send();
           }
         }
       }
@@ -81,37 +81,37 @@ module.exports[mg_keys.webhooks["delivered"]]     = function(req, res) {
   // Mailgun email webhook when email is delivered
   Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
     function(retval) {
-      res.status(200);
+      res.status(200).send();
     },
     function(err) {
-      res.status(406);
+      res.status(406).send();
     }
   );
 };
 
 module.exports[mg_keys.webhooks["bounced"]]      = function(req, res) {
-  res.status(406);
+  res.status(406).send();
 };
 
 module.exports[mg_keys.webhooks["dropped"]]        = function(req, res) {
-  res.status(406);
+  res.status(406).send();
 };
 
 module.exports[mg_keys.webhooks["spam"]]        = function(req, res) {
-  res.status(406);
+  res.status(406).send();
 };
 
 module.exports[mg_keys.webhooks["unsubscribed"]] = function(req, res) {
-  res.status(406);
+  res.status(406).send();
 };
 
 module.exports[mg_keys.webhooks["clicked"]]       = function(req, res) {
   Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
     function(retval) {
-      res.status(200);
+      res.status(200).send();
     },
     function(err) {
-      res.status(406);
+      res.status(406).send();
     }
   );
 };
@@ -119,10 +119,10 @@ module.exports[mg_keys.webhooks["clicked"]]       = function(req, res) {
 module.exports[mg_keys.webhooks["opened"]]        = function(req, res) {
   Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
     function(retval) {
-      res.status(200);
+      res.status(200).send();
     },
     function(err) {
-      res.status(406);
+      res.status(406).send();
     }
   );
 };

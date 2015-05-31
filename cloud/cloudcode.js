@@ -159,67 +159,72 @@ Parse.Cloud.define("updateEmailEvent",
   // Update an email with data from webhook
   //    @body: Post event's body
   function(req, res) {
-    var body = req.params.body;
-    // Dumb Mailgun inconsistency sh**
-    if(body["body"] !== undefined) { body = body["body"]; }
+    try {
+      var body = req.params.body;
+      // Dumb Mailgun inconsistency sh**
+      if(body["body"] !== undefined) { body = body["body"]; }
 
-    if(body["message-id"] !== undefined) {
-      body["Message-Id"] = body["message-id"]; // More inconsistency
-    } else {
-      // Slice off < and > for delivery webhook
-      body["Message-Id"] = body["Message-Id"].slice(1, -1);
-    }
+      if(body["message-id"] !== undefined) {
+        body["Message-Id"] = body["message-id"]; // More inconsistency
+      } else {
+        // Slice off < and > for delivery webhook
+        body["Message-Id"] = body["Message-Id"].slice(1, -1);
+      }
 
-    // Locate email with message_id
-    var Emails = Parse.Object.extend("Emails");
-    var query = new Parse.Query(Emails);
-    query.equalTo("messageId", body["Message-Id"]);
+      // Locate email with message_id
+      var Emails = Parse.Object.extend("Emails");
+      var query = new Parse.Query(Emails);
+      query.equalTo("messageId", body["Message-Id"]);
 
-    query.first()
-      .then(
-        function(retval) {
-          // Flag event as true
-          var event_obj = retval.get("events");
-          event_obj[body["event"]] = true;
-          retval.set("events", event_obj);
+      query.first()
+        .then(
+          function(retval) {
+            // Flag event as true
+            var event_obj = retval.get("events");
+            event_obj[body["event"]] = true;
+            retval.set("events", event_obj);
 
-          if(body["event"] == "delivered") {
-            // Set recipient
-            retval.set("recipient", body["recipient"]);
-            // TODO: Set timestamp
-            // retval.set("timeSent", body["timestamp"]);
-          }
-
-          // Populate metadata if applicable
-          if(body["event"] == "clicked" || body["event"] == "opened") {
-            var meta_obj = retval.get("metadata");
-            meta_obj["ip"]          = body["ip"];
-            meta_obj["country"]     = body["country"];
-            meta_obj["region"]      = body["region"];
-            meta_obj["city"]        = body["city"];
-            meta_obj["user-agent"]  = body["user-agent"];
-            meta_obj["device-type"] = body["device-type"];
-            meta_obj["client-type"] = body["client-type"];
-            meta_obj["client-name"] = body["client-name"];
-            meta_obj["client-os"]   = body["client-os"];
-
-            if(body["event"] == "clicked") {
-              meta_obj["url"] = body["url"];
+            if(body["event"] == "delivered") {
+              // Set recipient
+              retval.set("recipient", body["recipient"]);
               // TODO: Set timestamp
-              // retval.set("timeOpened", body["timestamp"]);
+              // retval.set("timeSent", body["timestamp"]);
             }
-            retval.set("metadata", meta_obj);
-          }
 
-          return retval.save();
-        }
-      ).then(
-        function(retval) {
-          res.success("Event " + body["event"] + " flagged.");
-        },
-        function(retval, err) {
-          res.error("Could not flag event " + body["event"] + ".");
-        }
-      );
+            // Populate metadata if applicable
+            if(body["event"] == "clicked" || body["event"] == "opened") {
+              var meta_obj = retval.get("metadata");
+              meta_obj["ip"]          = body["ip"];
+              meta_obj["country"]     = body["country"];
+              meta_obj["region"]      = body["region"];
+              meta_obj["city"]        = body["city"];
+              meta_obj["user-agent"]  = body["user-agent"];
+              meta_obj["device-type"] = body["device-type"];
+              meta_obj["client-type"] = body["client-type"];
+              meta_obj["client-name"] = body["client-name"];
+              meta_obj["client-os"]   = body["client-os"];
+
+              if(body["event"] == "clicked") {
+                meta_obj["url"] = body["url"];
+                // TODO: Set timestamp
+                // retval.set("timeOpened", body["timestamp"]);
+              }
+              retval.set("metadata", meta_obj);
+            }
+
+            return retval.save();
+          }
+        ).then(
+          function(retval) {
+            res.success("Event " + body["event"] + " flagged.");
+          },
+          function(retval, err) {
+            res.error("Could not flag event " + body["event"] + ".");
+          }
+        );
+    }
+    catch(err) {
+      res.error("Exception occured.");
+    }
   }
 );
