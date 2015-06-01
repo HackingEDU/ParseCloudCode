@@ -11,32 +11,66 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
 
   if(req.body.object.sentRegEmail == undefined ||
      req.body.object.sentRegEmail == false) { // Object is newly created
-    Parse.Cloud.run("emailUsers",
-      {
-        "user_email": req.body.object.emailAddress,
-        "template_id": template_id
-      },
-      {
-        success: function(retval) {
-          // Set sentRegEmail to true by responding with JSON object
-          res.status(200).send(
+    Parse.Cloud.run("validateEmail",
+      { email_address: req.body.object.emailAddress }
+      // Email validation error is propagated to end of promise chain
+    ).then(
+      function(retval) { // email was validated
+        return Parse.Cloud.run("emailUsers",
+          {
+            "user_email":  req.body.object.emailAddress,
+            "template_id": template_id
+          }
+        );
+      }
+    ).then(
+      function(retval) {
+        return Parse.Cloud.run("saveEmail",
+          {
+            message_id:  retval.message_id,
+            template_id: retval.template_id
+          }
+        );
+      }
+    ).then(
+      function(retval) {
+        // email object saved, sent reg email saved
+        // Respond success object with updated keys
+        res.send(
+          {
+            "success":
             {
-              "success": {
-                "sentRegEmail": true,
-                "emailAddress": req.body.object.emailAddress
-              }
+              "verifiedEmail": true,
+              "sentRegEmail": true,
+              "emailAddress": req.body.object.emailAddress,
+              "regEmail":
+                {
+                     "__type": "Pointer",
+                  "className": "Emails",
+                   "objectId": retval.id
+                }
             }
-          );
-        },
-        error: function(error) {
-          console.log("Error saving object...");
-          res.status(200).send( { "error": {} } );
-        }
+          }
+        );
+      },
+      function(error) {
+        console.log(error);
+
+        res.send(
+          {
+            "success":
+            {
+              "verifiedEmail": false,
+              "sentRegEmail": false,
+              "emailAddress": req.body.object.emailAddress,
+            }
+          }
+        );
       }
     );
   } else {
-    // Do not change any fields
-    res.status(200).send( { "success": req.body.object } );
+    console.log("Registration email already exists");
+    res.status(406).send();
   }
 };
 
@@ -50,46 +84,79 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
 \**** ******** ****/
 module.exports.initializeHooks = function(req, res) {
   // TODO: place for loop here because of successive callbacks within function
-  Parse.Cloud.run("emailCreateWebHook", {},
-    {
-      success: function(retval) {
-        res.send(retval);
+  var  webhooks = require("cloud/keys").mailgun.webhooksInit;
+  var ajaxCalls = mg_keys.webhooks.length;
+
+  for(var key in webhooks) {
+    Parse.Cloud.run("emailCreateWebHook",
+      {
+        hook_key: key,
+        hook_url: webhooks[key]
       },
-      error: function(err) {
-        res.send(err);
+      {
+        success: function(retval) {
+          --ajaxCalls;
+          if(ajaxCalls <= 0) {
+            res.send(200).send();
+          }
+        },
+        error: function(err) {
+          --ajaxCalls;
+          if(ajaxCalls <= 0) {
+            res.send(406).send();
+          }
+        }
       }
-    }
-  );
+    );
+  }
 };
 
 module.exports[mg_keys.webhooks["delivered"]]     = function(req, res) {
   // Mailgun email webhook when email is delivered
-  Parse.Cloud.run("updateEmailEvent", { body: req.body });
-  res.status(200);
+  Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
+    function(retval) {
+      res.status(200).send();
+    },
+    function(err) {
+      res.status(406).send();
+    }
+  );
 };
 
 module.exports[mg_keys.webhooks["bounced"]]      = function(req, res) {
-  res.status(200);
+  res.status(406).send();
 };
 
 module.exports[mg_keys.webhooks["dropped"]]        = function(req, res) {
-  res.status(200);
+  res.status(406).send();
 };
 
 module.exports[mg_keys.webhooks["spam"]]        = function(req, res) {
-  res.status(200);
+  res.status(406).send();
 };
 
 module.exports[mg_keys.webhooks["unsubscribed"]] = function(req, res) {
-  res.status(200);
+  res.status(406).send();
 };
 
 module.exports[mg_keys.webhooks["clicked"]]       = function(req, res) {
-  Parse.Cloud.run("updateEmailEvent", { body: req.body });
-  res.status(200);
+  Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
+    function(retval) {
+      res.status(200).send();
+    },
+    function(err) {
+      res.status(406).send();
+    }
+  );
 };
 
 module.exports[mg_keys.webhooks["opened"]]        = function(req, res) {
-  Parse.Cloud.run("updateEmailEvent", { body: req.body });
-  res.status(200);
+  Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
+    function(retval) {
+      res.status(200).send();
+    },
+    function(err) {
+      res.status(406).send();
+    }
+  );
 };

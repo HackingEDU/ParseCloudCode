@@ -13,7 +13,7 @@ app.use(express.bodyParser());    // Middleware for reading request body
 
 // Handle routes
 // app.get()
-app.post("/testEmailHook", routes.testEmailHook);
+app.get("/initializeHooks", routes.initializeHooks);
 
 // Mailgun webhook routes
 app.post("/" + mg_webhooks["onboard"], routes[mg_webhooks["onboard"]]);
