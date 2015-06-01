@@ -11,32 +11,66 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
 
   if(req.body.object.sentRegEmail == undefined ||
      req.body.object.sentRegEmail == false) { // Object is newly created
-    Parse.Cloud.run("emailUsers",
-      {
-        "user_email": req.body.object.emailAddress,
-        "template_id": template_id
-      },
-      {
-        success: function(retval) {
-          // Set sentRegEmail to true by responding with JSON object
-          res.status(200).send(
+    Parse.Cloud.run("validateEmail",
+      { email_address: req.body.object.emailAddress }
+      // Email validation error is propagated to end of promise chain
+    ).then(
+      function(retval) { // email was validated
+        return Parse.Cloud.run("emailUsers",
+          {
+            "user_email":  req.body.object.emailAddress,
+            "template_id": template_id
+          }
+        );
+      }
+    ).then(
+      function(retval) {
+        return Parse.Cloud.run("saveEmail",
+          {
+            message_id:  retval.message_id,
+            template_id: retval.template_id
+          }
+        );
+      }
+    ).then(
+      function(retval) {
+        // email object saved, sent reg email saved
+        // Respond success object with updated keys
+        res.send(
+          {
+            "success":
             {
-              "success": {
-                "sentRegEmail": true,
-                "emailAddress": req.body.object.emailAddress
-              }
+              "verifiedEmail": true,
+              "sentRegEmail": true,
+              "emailAddress": req.body.object.emailAddress,
+              "regEmail":
+                {
+                     "__type": "Pointer",
+                  "className": "Emails",
+                   "objectId": retval.id
+                }
             }
-          );
-        },
-        error: function(error) {
-          console.log("Error saving object...");
-          res.status(200).send( { "error": {} } );
-        }
+          }
+        );
+      },
+      function(error) {
+        console.log(error);
+
+        res.send(
+          {
+            "success":
+            {
+              "verifiedEmail": false,
+              "sentRegEmail": false,
+              "emailAddress": req.body.object.emailAddress,
+            }
+          }
+        );
       }
     );
   } else {
-    // Do not change any fields
-    res.status(200).send( { "success": req.body.object } );
+    console.log("Registration email already exists");
+    res.status(406).send();
   }
 };
 

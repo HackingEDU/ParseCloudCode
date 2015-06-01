@@ -13,7 +13,39 @@ Parse.Cloud.define("validateEmail",
   //    @email_address: potentially valid email address
   function(req, res) {
     // Do nothing and return true
-    res.success(true);
+    var  mg_keys = require("cloud/keys").mailgun;
+    var mg_url = "https://api:" + mg_keys.publicKey + "@" + mg_keys.baseURL +
+                 "/address/validate";
+
+    Parse.Cloud.httpRequest(
+      {
+        method: "GET",
+        url: mg_url,
+        params: {
+          address: req.params.email_address
+        },
+        success: function(httpRes) {
+          /* === Sample response ===
+            "is_valid": true,
+            "address": "foo@mailgun.net",
+            "parts": {
+              "display_name": null //Deprecated Field, will always be null
+                "local_part": "foo",
+                "domain": "mailgun.net",
+            },
+            "did_you_mean": null
+          */
+          if(httpRes.data.is_valid) {
+            res.success(true);
+          } else {
+            res.error(false);
+          }
+        },
+        error: function(httpRes) {
+          res.error(false);
+        }
+      }
+    );
   }
 );
 
@@ -39,7 +71,7 @@ Parse.Cloud.define("emailUsers",
           var email =
             {
               to:      req.params.user_email,
-              from:    "domain@example.com",
+              from:    retval.get("sender"),
               subject: retval.get("subject"),
               html:    retval.get("html")
             };
@@ -49,22 +81,19 @@ Parse.Cloud.define("emailUsers",
         }
       ).then(
         function(httpRes) { // Email sent success
-          // TODO: Add email to Emails for tracking
           console.log(httpRes.data.message);
-
-          return Parse.Cloud.run("saveEmail",
+          res.success(
             {
-              message_id: httpRes.data.id.slice(1, -1),
+              // format for message_id response is <12345.12345@blah.com>
+              // Need to slice off ends to normalize
+              message_id:  httpRes.data.id.slice(1, -1),
               template_id: req.params.template_id
             }
           );
-        }
-      ).then( // Parse function saveEmail success
-        function(retval) {
-          res.success(retval);
         },
-        function(err) { // Error propagation
-          res.error(err);
+        function(error) {
+          // Error returns as http response
+          res.error(error.message);
         }
       );
   }
@@ -80,8 +109,8 @@ Parse.Cloud.define("emailCreateWebHook",
 
     // POST https://api:{mgKey}@api.mailgun.net/v3/domains/{domainName}/webhooks
     var mg_url = "https://api:" + mg_keys.secretKey + "@" + mg_keys.baseURL +
-                 "/" + mg_keys.domainURL + "/webhooks";
-    var wb_url = "https://" + ps_keys.baseURL + "/" + req.params.hook_url;
+                 "/domains/"    + mg_keys.domainURL + "/webhooks";
+    var wb_url = "https://" + ps_keys.baseURL + "/domains/" + req.params.hook_url;
 
     Parse.Cloud.httpRequest(
       {
@@ -122,7 +151,7 @@ Parse.Cloud.define("saveEmail",
             "className": "EmailTemplates",
              "objectId": req.params.template_id
           },
-        "events": {
+        "events":  { // TODO: replace with pointer
           "bounced":      false,
           "delivered":    false,
           "dropped":      false,
@@ -131,7 +160,7 @@ Parse.Cloud.define("saveEmail",
           "opened":       false,
           "unsubscribed": false
         },
-        "metadata": {
+        "metadata": { // TODO: replace with pointer
           "ip":          undefined,
           "country":     undefined,
           "region":      undefined,
@@ -146,10 +175,10 @@ Parse.Cloud.define("saveEmail",
     ).then(
       function(email) {
         //Object saved successfully
-        res.success("Email saved!");
+        res.success(email);
       },
       function(email, error) {
-        res.error("Email could be not be saved.");
+        res.error(error); // error.message, and error.code???
       }
     );
   }
