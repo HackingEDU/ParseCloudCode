@@ -139,10 +139,6 @@ Parse.Cloud.define("saveEmail",
   function(req, res) {
     var Emails = Parse.Object.extend("Emails");
     var emails = new Emails();
-    var Events = Parse.Object.extend("EmailEvents");
-    var events = new Events();
-    var Metadata = Parse.Object.extend("EmailMetadata");
-    var metadata = new Metadata();
 
     // Initialize objects
     emails.set({"messageId": req.params.message_id});
@@ -158,72 +154,58 @@ Parse.Cloud.define("saveEmail",
         }
       );
     }
+    emails.save({}).then(
+      function emailSaved(email_obj) {
+        var Events = Parse.Object.extend("EmailEvents");
+        var events = new Events();
+        var Metadata = Parse.Object.extend("EmailMetadata");
+        var metadata = new Metadata();
 
-    events.set(
-      {
-        "messageId":    req.params.message_id,
-        "emailId":      {
-                          "__type":       "Pointer",
-                          "className":    "Emails",
-                          "objectId":     emails.id,
-                        },
-        "bounced":      { "value": false, "timestamp": null },
-        "delivered":    { "value": false, "timestamp": null },
-        "dropped":      { "value": false, "timestamp": null },
-        "spam":         { "value": false, "timestamp": null },
-        "clicked":      { "value": false, "timestamp": null },
-        "opened":       { "value": false, "timestamp": null },
-        "unsubscribed": { "value": false, "timestamp": null }
-      }
-    );
-
-    metadata.set({"messageId": req.params.message_id});
-    metadata.set(
-      {
-        "emailId":
+        events.set(
           {
-            "__type": "Pointer",
-            "className": "Emails",
-            "objectId": emails.id
-          },
-        "messageId":   req.params.message_id,
-        "ip":          undefined,
-        "country":     undefined,
-        "region":      undefined,
-        "city":        undefined,
-        "userAgent":   undefined,
-        "deviceType":  undefined,
-        "clientType":  undefined,
-        "clientName":  undefined,
-        "clientOs":    undefined
+            "messageId":    email_obj.get("messageId"),
+            "emailId":      {
+                              "__type":       "Pointer",
+                              "className":    "Emails",
+                              "objectId":     email_obj.id
+                            },
+            "bounced":      { "value": false, "timestamp": null },
+            "delivered":    { "value": false, "timestamp": null },
+            "dropped":      { "value": false, "timestamp": null },
+            "spam":         { "value": false, "timestamp": null },
+            "clicked":      { "value": false, "timestamp": null },
+            "opened":       { "value": false, "timestamp": null },
+            "unsubscribed": { "value": false, "timestamp": null }
+          }
+        );
+
+        metadata.set(
+          {
+            "emailId":
+            {
+              "__type": "Pointer",
+              "className": "Emails",
+              "objectId": email_obj.id
+            },
+            "messageId":   email_obj.get("messageId"),
+            "ip":          undefined,
+            "country":     undefined,
+            "region":      undefined,
+            "city":        undefined,
+            "userAgent":   undefined,
+            "deviceType":  undefined,
+            "clientType":  undefined,
+            "clientName":  undefined,
+            "clientOs":    undefined
+          }
+        );
+
+        // Low priority... do not need to wait for callback
+        events.save({});
+        metadata.save({});
+        res.success(email_obj);
       }
     );
-
-    var ajaxCounter = 3;
-    emails.save({}, {
-      success: function(email_obj) {
-        //Object saved successfully
-        if(--ajaxCounter <= 0) {
-          res.success(emails);
-        }
-      }
-    });
-    events.save({}, {
-      success: function(events_obj) {
-        //Object saved successfully
-        if(--ajaxCounter <= 0) {
-          res.success(emails);
-        }
-      }
-    });
-    metadata.save({}, {
-      success: function(metadata_obj) {
-        //Object saved successfully
-        if(--ajaxCounter <= 0) {
-          res.success(emails);
-        }
-      }
-    });
   }
 );
 
@@ -253,7 +235,6 @@ Parse.Cloud.define("updateEmailEvent",
 
     event_query.first().then(
       function eventFound(event_query) {
-        console.log(body["event"]);
         event_query.set(body["event"], { timestamp: null, value: true });
         return event_query.save(null);
       }
