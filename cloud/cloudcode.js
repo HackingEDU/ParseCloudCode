@@ -61,12 +61,12 @@ Parse.Cloud.define("emailUsers",
 
     // Set up EmailTemplates queries
     var EmailTemplates = Parse.Object.extend("EmailTemplates");
-    var query = new Parse.Query(EmailTemplates);
+    var email_query = new Parse.Query(EmailTemplates);
 
     // Look for requested email template
-    query.get(req.params.template_id)
+    email_query.get(req.params.template_id)
       .then(
-        function(retval) { // query for email template success
+        function(retval) { // email_query for email template success
           // Create email object for sending
           var email =
             {
@@ -81,7 +81,6 @@ Parse.Cloud.define("emailUsers",
         }
       ).then(
         function(httpRes) { // Email sent success
-          console.log(httpRes.data.message);
           res.success(
             {
               // format for message_id response is <12345.12345@blah.com>
@@ -134,53 +133,97 @@ Parse.Cloud.define("emailCreateWebHook",
 
 
 Parse.Cloud.define("saveEmail",
-  // Save email into Emails for tracking
+  // Save email into Emails, Metadata and Events for tracking
   //    @message_id: returned when sending email from mailgun
   //    @template_id:  Parse object to template
   function(req, res) {
     var Emails = Parse.Object.extend("Emails");
     var emails = new Emails();
+    var Events = Parse.Object.extend("EmailEvents");
+    var events = new Events();
+    var Metadata = Parse.Object.extend("EmailMetadata");
+    var metadata = new Metadata();
 
-    // Save email into Emails
-    emails.save(
-      {
-        "messageId": req.params.message_id,
-        "templateId":
+    // Initialize objects
+    emails.set({"messageId": req.params.message_id});
+    if(req.params.template_id !== undefined) {
+      emails.set(
+        {
+          "templateId":
           {
-               "__type": "Pointer",
+            "__type": "Pointer",
             "className": "EmailTemplates",
-             "objectId": req.params.template_id
-          },
-        "events":  { // TODO: replace with pointer
-          "bounced":      false,
-          "delivered":    false,
-          "dropped":      false,
-          "spam":         false,
-          "clicked":      false,
-          "opened":       false,
-          "unsubscribed": false
-        },
-        "metadata": { // TODO: replace with pointer
-          "ip":          undefined,
-          "country":     undefined,
-          "region":      undefined,
-          "city":        undefined,
-          "user-agent":  undefined,
-          "device-type": undefined,
-          "client-type": undefined,
-          "client-name": undefined,
-          "client-os":   undefined
+            "objectId": req.params.template_id
+          }
         }
-      }
-    ).then(
-      function(email) {
-        //Object saved successfully
-        res.success(email);
-      },
-      function(email, error) {
-        res.error(error); // error.message, and error.code???
+      );
+    }
+
+    events.set(
+      {
+        "messageId":    req.params.message_id,
+        "emailId":      {
+                          "__type":       "Pointer",
+                          "className":    "Emails",
+                          "objectId":     emails.id,
+                        },
+        "bounced":      { "value": false, "timestamp": null },
+        "delivered":    { "value": false, "timestamp": null },
+        "dropped":      { "value": false, "timestamp": null },
+        "spam":         { "value": false, "timestamp": null },
+        "clicked":      { "value": false, "timestamp": null },
+        "opened":       { "value": false, "timestamp": null },
+        "unsubscribed": { "value": false, "timestamp": null }
       }
     );
+
+    metadata.set({"messageId": req.params.message_id});
+    metadata.set(
+      {
+        "emailId":
+          {
+            "__type": "Pointer",
+            "className": "Emails",
+            "objectId": emails.id
+          },
+        "messageId":   req.params.message_id,
+        "ip":          undefined,
+        "country":     undefined,
+        "region":      undefined,
+        "city":        undefined,
+        "userAgent":   undefined,
+        "deviceType":  undefined,
+        "clientType":  undefined,
+        "clientName":  undefined,
+        "clientOs":    undefined
+      }
+    );
+
+    var ajaxCounter = 3;
+    emails.save({}, {
+      success: function(email_obj) {
+        //Object saved successfully
+        if(--ajaxCounter <= 0) {
+          res.success(emails);
+        }
+      }
+    });
+    events.save({}, {
+      success: function(events_obj) {
+        //Object saved successfully
+        if(--ajaxCounter <= 0) {
+          res.success(emails);
+        }
+      }
+    });
+    metadata.save({}, {
+      success: function(metadata_obj) {
+        //Object saved successfully
+        if(--ajaxCounter <= 0) {
+          res.success(emails);
+        }
+      }
+    });
   }
 );
 
@@ -188,72 +231,60 @@ Parse.Cloud.define("updateEmailEvent",
   // Update an email with data from webhook
   //    @body: Post event's body
   function(req, res) {
-    try {
-      var body = req.params.body;
-      // Dumb Mailgun inconsistency sh**
-      if(body["body"] !== undefined) { body = body["body"]; }
+    var body = req.params.body;
+    // Dumb Mailgun inconsistency sh**
+    if(body["body"] !== undefined) { body = body["body"]; }
 
-      if(body["message-id"] !== undefined) {
-        body["Message-Id"] = body["message-id"]; // More inconsistency
-      } else {
-        // Slice off < and > for delivery webhook
-        body["Message-Id"] = body["Message-Id"].slice(1, -1);
+    if(body["message-id"] !== undefined) {
+      body["Message-Id"] = body["message-id"]; // More inconsistency
+    } else {
+      // Slice off < and > for delivery webhook
+      body["Message-Id"] = body["Message-Id"].slice(1, -1);
+    }
+
+    // Event and Metadata queries
+    var Events = Parse.Object.extend("EmailEvents");
+    var event_query = new Parse.Query(Events);
+    event_query.equalTo("messageId", body["Message-Id"]);
+
+    var Meta   = Parse.Object.extend("EmailMetadata");
+    var meta_query  = new Parse.Query(Meta);
+    meta_query.equalTo("messageId", body["Message-Id"]);
+
+    event_query.first().then(
+      function eventFound(event_query) {
+        console.log(body["event"]);
+        event_query.set(body["event"], { timestamp: null, value: true });
+        return event_query.save(null);
       }
-
-      // Locate email with message_id
-      var Emails = Parse.Object.extend("Emails");
-      var query = new Parse.Query(Emails);
-      query.equalTo("messageId", body["Message-Id"]);
-
-      query.first()
-        .then(
-          function(retval) {
-            // Flag event as true
-            var event_obj = retval.get("events");
-            event_obj[body["event"]] = true;
-            retval.set("events", event_obj);
-
-            if(body["event"] == "delivered") {
-              // Set recipient
-              retval.set("recipient", body["recipient"]);
-              // TODO: Set timestamp
-              // retval.set("timeSent", body["timestamp"]);
-            }
-
-            // Populate metadata if applicable
-            if(body["event"] == "clicked" || body["event"] == "opened") {
-              var meta_obj = retval.get("metadata");
-              meta_obj["ip"]          = body["ip"];
-              meta_obj["country"]     = body["country"];
-              meta_obj["region"]      = body["region"];
-              meta_obj["city"]        = body["city"];
-              meta_obj["user-agent"]  = body["user-agent"];
-              meta_obj["device-type"] = body["device-type"];
-              meta_obj["client-type"] = body["client-type"];
-              meta_obj["client-name"] = body["client-name"];
-              meta_obj["client-os"]   = body["client-os"];
-
-              if(body["event"] == "clicked") {
-                meta_obj["url"] = body["url"];
-                // TODO: Set timestamp
-                // retval.set("timeOpened", body["timestamp"]);
-              }
-              retval.set("metadata", meta_obj);
-            }
-
-            return retval.save();
-          }
-        ).then(
-          function(retval) {
-            res.success("Event " + body["event"] + " flagged.");
-          },
-          function(retval, err) {
-            res.error("Could not flag event " + body["event"] + ".");
+    ).then(
+      function eventSaved(event_obj) {
+        return meta_query.first();
+      }
+    ).then(
+      function metaQuery(meta_found) {
+        meta_found.set(
+          {
+            "ip":          body["ip"],
+            "country":     body["country"],
+            "region":      body["region"],
+            "city":        body["city"],
+            "userAgent":   body["user-agent"],
+            "deviceType":  body["device-type"],
+            "clientType":  body["client-type"],
+            "clientName":  body["client-name"],
+            "clientOs":    body["client-os"]
           }
         );
-    }
-    catch(err) {
-      res.error("Exception occured.");
-    }
+        return meta_found.save(null);
+      }
+    ).then(
+      function (meta_obj) {
+        res.success("Events and Metadata saved");
+      },
+      function (meta_obj, error) {
+        res.error("Events and Metadata unable to be saved");
+      }
+    );
   }
 );

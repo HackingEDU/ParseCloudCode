@@ -69,8 +69,8 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
       }
     );
   } else {
-    console.log("Registration email already exists");
-    res.status(406).send();
+    // Let any changes be made
+    res.status(200).send({"success":{}});
   }
 };
 
