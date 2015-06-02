@@ -1,6 +1,5 @@
 module.exports = {} // Parse cloud definitions do not need to be exported
 
-
 /*                   *\
  * ***************** *
  * ***************** *
@@ -139,10 +138,6 @@ Parse.Cloud.define("saveEmail",
   function(req, res) {
     var Emails = Parse.Object.extend("Emails");
     var emails = new Emails();
-    var Events = Parse.Object.extend("EmailEvents");
-    var events = new Events();
-    var Metadata = Parse.Object.extend("EmailMetadata");
-    var metadata = new Metadata();
 
     // Initialize objects
     emails.set({"messageId": req.params.message_id});
@@ -158,72 +153,58 @@ Parse.Cloud.define("saveEmail",
         }
       );
     }
+    emails.save({}).then(
+      function emailSaved(email_obj) {
+        var Events = Parse.Object.extend("EmailEvents");
+        var events = new Events();
+        var Metadata = Parse.Object.extend("EmailMetadata");
+        var metadata = new Metadata();
 
-    events.set(
-      {
-        "messageId":    req.params.message_id,
-        "emailId":      {
-                          "__type":       "Pointer",
-                          "className":    "Emails",
-                          "objectId":     emails.id,
-                        },
-        "bounced":      { "value": false, "timestamp": null },
-        "delivered":    { "value": false, "timestamp": null },
-        "dropped":      { "value": false, "timestamp": null },
-        "spam":         { "value": false, "timestamp": null },
-        "clicked":      { "value": false, "timestamp": null },
-        "opened":       { "value": false, "timestamp": null },
-        "unsubscribed": { "value": false, "timestamp": null }
-      }
-    );
-
-    metadata.set({"messageId": req.params.message_id});
-    metadata.set(
-      {
-        "emailId":
+        events.set(
           {
-            "__type": "Pointer",
-            "className": "Emails",
-            "objectId": emails.id
-          },
-        "messageId":   req.params.message_id,
-        "ip":          undefined,
-        "country":     undefined,
-        "region":      undefined,
-        "city":        undefined,
-        "userAgent":   undefined,
-        "deviceType":  undefined,
-        "clientType":  undefined,
-        "clientName":  undefined,
-        "clientOs":    undefined
+            "messageId":    email_obj.get("messageId"),
+            "emailId":      {
+                              "__type":       "Pointer",
+                              "className":    "Emails",
+                              "objectId":     email_obj.id
+                            },
+            "bounced":      undefined,
+            "delivered":    undefined,
+            "dropped":      undefined,
+            "spam":         undefined,
+            "clicked":      undefined,
+            "opened":       undefined,
+            "unsubscribed": undefined
+          }
+        );
+
+        metadata.set(
+          {
+            "emailId":
+            {
+              "__type": "Pointer",
+              "className": "Emails",
+              "objectId": email_obj.id
+            },
+            "messageId":   email_obj.get("messageId"),
+            "ip":          undefined,
+            "country":     undefined,
+            "region":      undefined,
+            "city":        undefined,
+            "userAgent":   undefined,
+            "deviceType":  undefined,
+            "clientType":  undefined,
+            "clientName":  undefined,
+            "clientOs":    undefined
+          }
+        );
+
+        // Low priority... do not need to wait for callback
+        events.save({});
+        metadata.save({});
+        res.success(email_obj);
       }
     );
-
-    var ajaxCounter = 3;
-    emails.save({}, {
-      success: function(email_obj) {
-        //Object saved successfully
-        if(--ajaxCounter <= 0) {
-          res.success(emails);
-        }
-      }
-    });
-    events.save({}, {
-      success: function(events_obj) {
-        //Object saved successfully
-        if(--ajaxCounter <= 0) {
-          res.success(emails);
-        }
-      }
-    });
-    metadata.save({}, {
-      success: function(metadata_obj) {
-        //Object saved successfully
-        if(--ajaxCounter <= 0) {
-          res.success(emails);
-        }
-      }
-    });
   }
 );
 
@@ -253,8 +234,97 @@ Parse.Cloud.define("updateEmailEvent",
 
     event_query.first().then(
       function eventFound(event_query) {
-        console.log(body["event"]);
-        event_query.set(body["event"], { timestamp: null, value: true });
+        switch(body["event"]) {
+          case "bounced":
+            event_query.set({
+                "bounced":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "notification": body["notification"],
+                    "code":         body["code"],
+                    "error":        body["error"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+          case "delivered":
+            event_query.set({
+                "delivered":
+                  {
+                    "value":       true,
+                    "timestamp":   body["timestamp"],
+                  }
+              }
+            );
+            break;
+          case "dropped":
+            event_query.set({
+                "dropped":
+                  {
+                    "value":       true,
+                    "timestamp":   body["timestamp"],
+                    "reason":      body["reason"],
+                    "code":        body["code"],
+                    "description": body["error"]
+                  }
+              }
+            );
+            break;
+          case "spam":
+            event_query.set({
+                "spam":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+          case "unsubscribed":
+            event_query.set({
+                "unsubscribed":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+          case "clicked":
+            event_query.set({
+                "clicked":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+          case "opened":
+            event_query.set({
+                "opened":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+        }
+
+        // TODO: set recipient for parent email object
+        event_query.set("recipient", body["recipient"]);
         return event_query.save(null);
       }
     ).then(
@@ -263,19 +333,27 @@ Parse.Cloud.define("updateEmailEvent",
       }
     ).then(
       function metaQuery(meta_found) {
-        meta_found.set(
-          {
-            "ip":          body["ip"],
-            "country":     body["country"],
-            "region":      body["region"],
-            "city":        body["city"],
-            "userAgent":   body["user-agent"],
-            "deviceType":  body["device-type"],
-            "clientType":  body["client-type"],
-            "clientName":  body["client-name"],
-            "clientOs":    body["client-os"]
-          }
-        );
+        switch(body["event"]) {
+          case "opened":
+          case "clicked":
+          case "unsubscribed":
+            meta_found.set(
+              {
+                "ip":          body["ip"],
+                "country":     body["country"],
+                "region":      body["region"],
+                "city":        body["city"],
+                "userAgent":   body["user-agent"],
+                "deviceType":  body["device-type"],
+                "clientType":  body["client-type"],
+                "clientName":  body["client-name"],
+                "clientOs":    body["client-os"]
+              }
+            );
+            break;
+          default:
+            break;
+        }
         return meta_found.save(null);
       }
     ).then(
