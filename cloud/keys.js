@@ -4,11 +4,19 @@ module.exports = {
     "applicationId": "appID",
     "jsKey": "jsKey",
     "masterKey": "masterKey"
+    "classes": {
+      "applicants": "applicants",
+      "emails": "Emails",
+      "templates": "EmailTemplates",
+      "events": "EmailEvents",
+      "metadata": "EmailMetadata"
+    }
   },
   "mailgun": {
-    "baseURL": "api.mailgun.net/v3/domains",
     "domainURL": "mailgunDomainName",
     "secretKey": "secretKey",
+    "baseURL": "api.mailgun.net/v3",
+    "publicKey": "pubkey-59343b5d71a8526658ec3eba667bd882",
     "webhooks": {
       "onboard":      "o29d7e29bb8e3b23cc2691f541291d75a",
       "bounced":      "b8749c86de3f73c94befcb82cb0245410",
