@@ -15,7 +15,7 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
       { email_address: req.body.object.emailAddress }
       // Email validation error is propagated to end of promise chain
     ).then(
-      function(retval) { // email was validated
+      function sendEmail(retval) { // email was validated
         return Parse.Cloud.run("emailUsers",
           {
             "user_email":  req.body.object.emailAddress,
@@ -24,7 +24,7 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
         );
       }
     ).then(
-      function(retval) {
+      function saveEmail(retval) {
         return Parse.Cloud.run("saveEmail",
           {
             message_id:  retval.message_id,
@@ -33,7 +33,7 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
         );
       }
     ).then(
-      function(retval) {
+      function setApplicant(retval) {
         // email object saved, sent reg email saved
         // Respond success object with updated keys
         res.send(
@@ -53,9 +53,9 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
           }
         );
       },
-      function(error) {
+      function errorApplicant(error) {
+        // Error (most likely validating email), but handle gracefully
         console.log(error);
-
         res.send(
           {
             "success":
@@ -83,7 +83,6 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
  **** ******** ****
 \**** ******** ****/
 module.exports.initializeHooks = function(req, res) {
-  // TODO: place for loop here because of successive callbacks within function
   var  webhooks = require("cloud/keys").mailgun.webhooksInit;
   var ajaxCalls = mg_keys.webhooks.length;
 
@@ -124,19 +123,48 @@ module.exports[mg_keys.webhooks["delivered"]]     = function(req, res) {
 };
 
 module.exports[mg_keys.webhooks["bounced"]]      = function(req, res) {
-  res.status(406).send();
+  // Mailgun email webhook when email is delivered
+  Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
+    function(retval) {
+      res.status(200).send();
+    },
+    function(err) {
+      res.status(406).send();
+    }
+  );
 };
 
 module.exports[mg_keys.webhooks["dropped"]]        = function(req, res) {
-  res.status(406).send();
+  Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
+    function(retval) {
+      res.status(200).send();
+    },
+    function(err) {
+      res.status(406).send();
+    }
+  );
 };
 
 module.exports[mg_keys.webhooks["spam"]]        = function(req, res) {
-  res.status(406).send();
+  Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
+    function(retval) {
+      res.status(200).send();
+    },
+    function(err) {
+      res.status(406).send();
+    }
+  );
 };
 
 module.exports[mg_keys.webhooks["unsubscribed"]] = function(req, res) {
-  res.status(406).send();
+  Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
+    function(retval) {
+      res.status(200).send();
+    },
+    function(err) {
+      res.status(406).send();
+    }
+  );
 };
 
 module.exports[mg_keys.webhooks["clicked"]]       = function(req, res) {

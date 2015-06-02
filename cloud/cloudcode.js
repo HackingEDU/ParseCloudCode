@@ -1,6 +1,5 @@
 module.exports = {} // Parse cloud definitions do not need to be exported
 
-
 /*                   *\
  * ***************** *
  * ***************** *
@@ -169,13 +168,13 @@ Parse.Cloud.define("saveEmail",
                               "className":    "Emails",
                               "objectId":     email_obj.id
                             },
-            "bounced":      { "value": false, "timestamp": null },
-            "delivered":    { "value": false, "timestamp": null },
-            "dropped":      { "value": false, "timestamp": null },
-            "spam":         { "value": false, "timestamp": null },
-            "clicked":      { "value": false, "timestamp": null },
-            "opened":       { "value": false, "timestamp": null },
-            "unsubscribed": { "value": false, "timestamp": null }
+            "bounced":      undefined,
+            "delivered":    undefined,
+            "dropped":      undefined,
+            "spam":         undefined,
+            "clicked":      undefined,
+            "opened":       undefined,
+            "unsubscribed": undefined
           }
         );
 
@@ -235,7 +234,97 @@ Parse.Cloud.define("updateEmailEvent",
 
     event_query.first().then(
       function eventFound(event_query) {
-        event_query.set(body["event"], { timestamp: null, value: true });
+        switch(body["event"]) {
+          case "bounced":
+            event_query.set({
+                "bounced":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "notification": body["notification"],
+                    "code":         body["code"],
+                    "error":        body["error"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+          case "delivered":
+            event_query.set({
+                "delivered":
+                  {
+                    "value":       true,
+                    "timestamp":   body["timestamp"],
+                  }
+              }
+            );
+            break;
+          case "dropped":
+            event_query.set({
+                "dropped":
+                  {
+                    "value":       true,
+                    "timestamp":   body["timestamp"],
+                    "reason":      body["reason"],
+                    "code":        body["code"],
+                    "description": body["error"]
+                  }
+              }
+            );
+            break;
+          case "spam":
+            event_query.set({
+                "spam":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+          case "unsubscribed":
+            event_query.set({
+                "unsubscribed":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+          case "clicked":
+            event_query.set({
+                "clicked":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+          case "opened":
+            event_query.set({
+                "opened":
+                  {
+                    "value":        true,
+                    "timestamp":    body["timestamp"],
+                    "campaignId":   body["campaign-id"],
+                    "campaignName": body["campaign-name"]
+                  }
+              }
+            );
+            break;
+        }
+
+        // TODO: set recipient for parent email object
+        event_query.set("recipient", body["recipient"]);
         return event_query.save(null);
       }
     ).then(
@@ -244,19 +333,27 @@ Parse.Cloud.define("updateEmailEvent",
       }
     ).then(
       function metaQuery(meta_found) {
-        meta_found.set(
-          {
-            "ip":          body["ip"],
-            "country":     body["country"],
-            "region":      body["region"],
-            "city":        body["city"],
-            "userAgent":   body["user-agent"],
-            "deviceType":  body["device-type"],
-            "clientType":  body["client-type"],
-            "clientName":  body["client-name"],
-            "clientOs":    body["client-os"]
-          }
-        );
+        switch(body["event"]) {
+          case "opened":
+          case "clicked":
+          case "unsubscribed":
+            meta_found.set(
+              {
+                "ip":          body["ip"],
+                "country":     body["country"],
+                "region":      body["region"],
+                "city":        body["city"],
+                "userAgent":   body["user-agent"],
+                "deviceType":  body["device-type"],
+                "clientType":  body["client-type"],
+                "clientName":  body["client-name"],
+                "clientOs":    body["client-os"]
+              }
+            );
+            break;
+          default:
+            break;
+        }
         return meta_found.save(null);
       }
     ).then(
