@@ -199,10 +199,35 @@ Parse.Cloud.define("saveEmail",
           }
         );
 
-        // Low priority... do not need to wait for callback
-        events.save({});
-        metadata.save({});
-        res.success(email_obj);
+        events.save({}).then(
+          function(ev_obj) {
+            email_obj.set({
+              "events":
+              {
+                "__type": "Pointer",
+                "className": "EmailEvents",
+                "objectId": ev_obj.id
+              }
+            });
+            return metadata.save({});
+          }
+        ).then(
+          function(mt_obj) {
+            email_obj.set({
+              "metadata":
+              {
+                "__type": "Pointer",
+                "className": "EmailMetadata",
+                "objectId": mt_obj.id
+              }
+            });
+            return email_obj.save({});
+          }
+        ).then(
+          function(email_obj_new) {
+            res.success(email_obj_new);
+          }
+        );
       }
     );
   }
