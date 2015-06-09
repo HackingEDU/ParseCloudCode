@@ -4,6 +4,10 @@ var api_keys = require("cloud/keys");
 var  ps_keys = api_keys.parse;
 var  mg_keys = api_keys.mailgun;
 
+module.exports[mg_keys.webhooks["template"]] = function(req, res) {
+  // Mailgun webhook creates a new template email
+}
+
 module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
   // Parse beforeSave webhook when object is created or modified
   // Sends a predefined template email to an email in emailAddress

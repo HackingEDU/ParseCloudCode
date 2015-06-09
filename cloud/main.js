@@ -2,20 +2,22 @@
 // These two lines are required to initialize Express in Cloud Code.
 var express = require("express");
 var     app = express();
+var parseExpressRawBody = require("parse-express-raw-body");
 var  routes = require("cloud/routes");
-var    keys = require("cloud/keys");
-var mg_webhooks = keys.mailgun.webhooks;
+var mg_webhooks = require("cloud/keys").mailgun.webhooks;
 
 // Global app configuration section
 app.set('views', 'cloud/views');  // Specify the folder to find templates
-app.set('view engine', 'jade');    // Set the template engine
+app.set('view engine', 'jade');   // Set the template engine
 app.use(express.bodyParser());    // Middleware for reading request body
+app.use(parseExpressRawBody());   // Middleware for non JSON/form-urlencoded
 
 // Handle routes
 // app.get()
 app.get("/initializeHooks", routes.initializeHooks);
 
 // Mailgun webhook routes
+app.post("/" + mg_webhooks["template"], routes[mg_webhooks["template"]]);
 app.post("/" + mg_webhooks["onboard"], routes[mg_webhooks["onboard"]]);
 app.post("/" + mg_webhooks["bounced"],  routes[mg_webhooks["bounced"]]);
 app.post("/" + mg_webhooks["delivered"], routes[mg_webhooks["delivered"]]);
