@@ -4,16 +4,41 @@ var api_keys = require("cloud/keys");
 var  ps_keys = api_keys.parse;
 var  mg_keys = api_keys.mailgun;
 
+module.exports[mg_keys.webhooks["template"]] = function(req, res) {
+  // Mailgun webhook creates a new template email
+  Parse.Cloud.run("emailCreateTemplate",
+    {
+      body: req.body,
+      sender: req.body["from"]
+    }
+  ).then(
+    function(retval) {
+      res.status(200).send();
+    },
+    function(error) {
+      console.log(error);
+      res.status(406).send();
+    }
+  );
+}
+
 module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
   // Parse beforeSave webhook when object is created or modified
-  // Sends a predefined template email to an email in emailAddress
-  var template_id = "sTmfbil4T3"; // Manually selected from Parse database
+  // Sends email template with the type "onboard"
+  var Templates = Parse.Object.extend("EmailTemplates");
+  var tquery = new Parse.Query(Templates);
+  var template_id = undefined;
+  tquery.equalTo("type", "onboard");
 
   if(req.body.object.sentRegEmail == undefined ||
      req.body.object.sentRegEmail == false) { // Object is newly created
-    Parse.Cloud.run("validateEmail",
-      { email_address: req.body.object.emailAddress }
-      // Email validation error is propagated to end of promise chain
+    tquery.first().then(
+      function(template) {
+        template_id = template.id;
+        return Parse.Cloud.run("validateEmail",
+          { email_address: req.body.object.emailAddress }
+        );
+      }
     ).then(
       function sendEmail(retval) { // email was validated
         return Parse.Cloud.run("emailUsers",

@@ -72,7 +72,8 @@ Parse.Cloud.define("emailUsers",
               to:      req.params.user_email,
               from:    retval.get("sender"),
               subject: retval.get("subject"),
-              html:    retval.get("html")
+              text:    retval.get("strippedText"),
+              html:    retval.get("bodyHTML")
             };
 
           // Send email object
@@ -130,17 +131,67 @@ Parse.Cloud.define("emailCreateWebHook",
   }
 );
 
+Parse.Cloud.define("emailCreateTemplate",
+  // Save email into Emails, Metadata and Events for tracking
+  //    @body: returned when sending email from mailgun
+  //    @sender:  Parse object to template
+  function(req, res) {
+    try {
+      // Default values
+      if(req.params.body === undefined) {
+        res.error("No body specified");
+      }
+      if(req.params.sender === undefined) {
+        req.params.sender = "no-reply@hackingedu.co";
+      }
+
+      // Create new template
+      var Templates = Parse.Object.extend("EmailTemplates");
+      var template = new Templates();
+
+      // Populate template fields
+      template.set("subject",           req.params.body["subject"]);
+      template.set("sender",            req.params.sender);
+      template.set("importance",        req.params.body["Importance"]);
+      template.set("bodyPlain",         req.params.body["body-plain"]);
+      template.set("bodyHTML",          req.params.body["body-html"]);
+      template.set("signature",         req.params.body["signature"]);
+      template.set("strippedHTML",      req.params.body["stripped-html"]);
+      template.set("strippedText",      req.params.body["stripped-text"]);
+      template.set("strippedSignature", req.params.body["stripped-signature"]);
+      template.save({}).then(
+        function(new_template) {
+          res.success("Template created.");
+        },
+        function(new_template, error) {
+          res.error("Could not create template.");
+        }
+      );
+    } catch(e) {
+      res.error("Exception occured.");
+    }
+  }
+);
+
+
 
 Parse.Cloud.define("saveEmail",
   // Save email into Emails, Metadata and Events for tracking
   //    @message_id: returned when sending email from mailgun
   //    @template_id:  Parse object to template
+  //    @direction: inbound or outbound
   function(req, res) {
     var Emails = Parse.Object.extend("Emails");
     var emails = new Emails();
 
     // Initialize objects
-    emails.set({"messageId": req.params.message_id});
+    emails.set(
+      {
+        "messageId": req.params.message_id,
+        "direction": ((req.params.direction === undefined)
+                     ? "outbound" : req.params.direction)
+      }
+    );
     if(req.params.template_id !== undefined) {
       emails.set(
         {
@@ -199,10 +250,35 @@ Parse.Cloud.define("saveEmail",
           }
         );
 
-        // Low priority... do not need to wait for callback
-        events.save({});
-        metadata.save({});
-        res.success(email_obj);
+        events.save({}).then(
+          function(ev_obj) {
+            email_obj.set({
+              "events":
+              {
+                "__type": "Pointer",
+                "className": "EmailEvents",
+                "objectId": ev_obj.id
+              }
+            });
+            return metadata.save({});
+          }
+        ).then(
+          function(mt_obj) {
+            email_obj.set({
+              "metadata":
+              {
+                "__type": "Pointer",
+                "className": "EmailMetadata",
+                "objectId": mt_obj.id
+              }
+            });
+            return email_obj.save({});
+          }
+        ).then(
+          function(email_obj_new) {
+            res.success(email_obj_new);
+          }
+        );
       }
     );
   }
@@ -323,12 +399,17 @@ Parse.Cloud.define("updateEmailEvent",
             break;
         }
 
-        // TODO: set recipient for parent email object
         event_query.set("recipient", body["recipient"]);
         return event_query.save(null);
       }
     ).then(
       function eventSaved(event_obj) {
+        var pemail = event_obj.get("emailId");
+        pemail.set("recipient", body["recipient"]);
+        return pemail.save({});
+      }
+    ).then(
+      function parentSaved(parent_obj) {
         return meta_query.first();
       }
     ).then(
