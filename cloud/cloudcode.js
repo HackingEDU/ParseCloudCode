@@ -392,12 +392,17 @@ Parse.Cloud.define("updateEmailEvent",
             break;
         }
 
-        // TODO: set recipient for parent email object
         event_query.set("recipient", body["recipient"]);
         return event_query.save(null);
       }
     ).then(
       function eventSaved(event_obj) {
+        var pemail = event_obj.get("emailId");
+        pemail.set("recipient", body["recipient"]);
+        return pemail.save({});
+      }
+    ).then(
+      function parentSaved(parent_obj) {
         return meta_query.first();
       }
     ).then(
