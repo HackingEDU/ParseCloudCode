@@ -179,12 +179,19 @@ Parse.Cloud.define("saveEmail",
   // Save email into Emails, Metadata and Events for tracking
   //    @message_id: returned when sending email from mailgun
   //    @template_id:  Parse object to template
+  //    @direction: inbound or outbound
   function(req, res) {
     var Emails = Parse.Object.extend("Emails");
     var emails = new Emails();
 
     // Initialize objects
-    emails.set({"messageId": req.params.message_id});
+    emails.set(
+      {
+        "messageId": req.params.message_id,
+        "direction": ((req.params.direction === undefined)
+                     ? "outbound" : req.params.direction)
+      }
+    );
     if(req.params.template_id !== undefined) {
       emails.set(
         {
