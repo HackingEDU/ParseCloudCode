@@ -5,9 +5,7 @@
   "applications": {
     "Test Database": {
       "applicationId": "appID",
-      "masterKey": "masterKey",
-      "mailgunDomain": "mailgun@example.com",
-      "mailgunKey": "mailgunKey"
+      "masterKey": "masterKey"
     },
     "_default": {
       "link": "Test Database"
