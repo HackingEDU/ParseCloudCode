@@ -131,6 +131,49 @@ Parse.Cloud.define("emailCreateWebHook",
   }
 );
 
+Parse.Cloud.define("emailCreateTemplate",
+  // Save email into Emails, Metadata and Events for tracking
+  //    @body: returned when sending email from mailgun
+  //    @sender:  Parse object to template
+  function(req, res) {
+    try {
+      // Default values
+      if(req.params.body === undefined) {
+        res.error("No body specified");
+      }
+      if(req.params.sender === undefined) {
+        req.params.sender = "no-reply@hackingedu.co";
+      }
+
+      // Create new template
+      var Templates = Parse.Object.extend("EmailTemplates");
+      var template = new Templates();
+
+      // Populate template fields
+      template.set("subject",           req.params.body["subject"]);
+      template.set("sender",            req.params.sender);
+      template.set("importance",        req.params.body["Importance"]);
+      template.set("bodyPlain",         req.params.body["body-plain"]);
+      template.set("bodyHTML",          req.params.body["body-html"]);
+      template.set("signature",         req.params.body["signature"]);
+      template.set("strippedHTML",      req.params.body["stripped-html"]);
+      template.set("strippedText",      req.params.body["stripped-text"]);
+      template.set("strippedSignature", req.params.body["stripped-signature"]);
+      template.save({}).then(
+        function(new_template) {
+          res.success("Template created.");
+        },
+        function(new_template, error) {
+          res.error("Could not create template.");
+        }
+      );
+    } catch(e) {
+      res.error("Exception occured.");
+    }
+  }
+);
+
+
 
 Parse.Cloud.define("saveEmail",
   // Save email into Emails, Metadata and Events for tracking
