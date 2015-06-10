@@ -72,7 +72,8 @@ Parse.Cloud.define("emailUsers",
               to:      req.params.user_email,
               from:    retval.get("sender"),
               subject: retval.get("subject"),
-              html:    retval.get("html")
+              text:    retval.get("strippedText"),
+              html:    retval.get("bodyHTML")
             };
 
           // Send email object
