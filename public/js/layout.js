@@ -4,7 +4,7 @@ function Pager(size) {
   this.page_size = (size === undefined) ? 0 : size;
 }
 
-Pager.prototype.movePage = function(dir) {
+Pager.prototype.move = function(dir) {
   // Pages left/right relative to current page
   //  @dir: direction to move (+ to move up, - to move down)
   //        if dir is undefined, will move to page 0
