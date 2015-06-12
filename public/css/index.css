@@ -1,0 +1,60 @@
+html, body {
+  height:      100%;
+  width:       100%;
+
+  margin:      0;
+  padding:     0;
+
+  white-space: nowrap;
+}
+
+#sidebar_cont {
+  display: inline-block;
+  vertical-align: text-top;
+
+  height:      100%;
+  width:       15%;
+  min-width:   150px;
+
+  margin:      0;
+  border:      1px solid black;
+  box-sizing:  border-box;
+}
+
+#main_cont {
+  display: inline-block;
+  vertical-align: text-top;
+
+  height:      100%;
+  width:       85%;
+  min-width:   800px;
+
+  margin:      0;
+  border:      1px solid black;
+  box-sizing:  border-box;
+}
+
+#sidebar_menu {
+  text-align: center;
+  list-style-type: none;
+
+  margin:  0;
+  padding: 0;
+}
+
+#sidebar_menu li, #sidebar_menu a {
+  display: block;
+
+  height:  40px;
+  width:   100%;
+
+  margin:  -1px 0;
+  padding: 0;
+
+  text-decoration: none;
+}
+
+#sidebar_menu li {
+  border:     1px solid black;
+  box-sizing: border-box;
+}

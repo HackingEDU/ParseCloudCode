@@ -1,0 +1,25 @@
+doctype html
+html
+  head
+    link(type="text/css", rel="stylesheet", href="/css/index.css")
+    link(type="text/css", rel="stylesheet", href="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js")
+    block script
+
+  body
+    div#sidebar_cont
+      ul#sidebar_menu
+        li
+          a(href="/") Home
+        li
+          a(href="/templates") Templates
+        li
+          a(href="/sending") Sending
+        li
+          a(href="/tracking") Tracking
+        li
+          a(href="/routing") Routing
+    div#main_cont
+      div#main_menu
+        block submenu
+      div#main_view
+        block main
