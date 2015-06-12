@@ -4,6 +4,34 @@ var api_keys = require("cloud/keys");
 var  ps_keys = api_keys.parse;
 var  mg_keys = api_keys.mailgun;
 
+/**** ******** ****\
+ **** ******** ****
+ ****   HTTP   ****
+ **** ******** ****
+\**** ******** ****/
+module.exports.index = function(req, res)    { res.status(200).send(); };
+module.exports.template = function(req, res) { res.status(200).send(); };
+module.exports.send = function(req, res)     { res.status(200).send(); };
+module.exports.tracking = function(req, res) { res.status(200).send(); };
+
+
+
+/**** ******** ****\
+ **** ******** ****
+ ****   AJAX   ****
+ **** ******** ****
+\**** ******** ****/
+module.exports.sendTemplate = function(req, res) { res.status(200).send(); };
+module.exports.getTemplates = function(req, res) { res.status(200).send(); };
+module.exports.getEmails    = function(req, res) { res.status(200).send(); };
+
+
+
+/**** ******** ****\
+ **** ******** ****
+ **** Webhooks ****
+ **** ******** ****
+\**** ******** ****/
 module.exports[mg_keys.webhooks["template"]] = function(req, res) {
   // Mailgun webhook creates a new template email
   Parse.Cloud.run("emailCreateTemplate",
@@ -99,14 +127,6 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
   }
 };
 
-
-
-
-/**** ******** ****\
- **** ******** ****
- **** Webhooks ****
- **** ******** ****
-\**** ******** ****/
 module.exports.initializeHooks = function(req, res) {
   var  webhooks = require("cloud/keys").mailgun.webhooksInit;
   var ajaxCalls = mg_keys.webhooks.length;
