@@ -15,9 +15,11 @@ app.use(parseExpressRawBody());   // Middleware for non JSON/form-urlencoded
 // HTTP Routes
 // app.get()
 app.get("/",          routes.index);
+app.get("/index",     routes.index);
 app.get("/templates", routes.template);
 app.get("/sending",   routes.send);
 app.get("/tracking",  routes.tracking);
+app.get("/routing",   routes.routing);
 
 // AJAX routes
 app.post("/action/sendTemplate", routes.sendTemplate);
