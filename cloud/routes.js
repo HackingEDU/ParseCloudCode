@@ -9,10 +9,16 @@ var  mg_keys = api_keys.mailgun;
  ****   HTTP   ****
  **** ******** ****
 \**** ******** ****/
-module.exports.index = function(req, res)    { res.status(200).send(); };
-module.exports.template = function(req, res) { res.status(200).send(); };
+module.exports.index = function(req, res)    {
+  res.status(200).render("index");
+};
+
+module.exports.template = function(req, res) {
+  res.status(200).render("templates");
+};
 module.exports.send = function(req, res)     { res.status(200).send(); };
 module.exports.tracking = function(req, res) { res.status(200).send(); };
+module.exports.routing = function(req, res) { res.status(200).send(); };
 
 
 
@@ -22,7 +28,24 @@ module.exports.tracking = function(req, res) { res.status(200).send(); };
  **** ******** ****
 \**** ******** ****/
 module.exports.sendTemplate = function(req, res) { res.status(200).send(); };
-module.exports.getTemplates = function(req, res) { res.status(200).send(); };
+module.exports.getTemplates = function(req, res) {
+  // Retrieve a list of templates from parse database EmailTemplates
+  //  @limit: Limit how many templates to retrieve
+  //  @offset: record number to start retrieving from
+  var Templates = Parse.Object.extend("EmailTemplates");
+  var query = new Parse.Query(Templates);
+  query.limit(req.query.limit);
+  query.skip(req.query.offset);
+
+  query.find().then(
+    function success(results) {
+      res.status(200).send(results);
+    },
+    function error(err) {
+      res.status(406).send(undefined);
+    }
+  );
+};
 module.exports.getEmails    = function(req, res) { res.status(200).send(); };
 
 
