@@ -1,13 +1,20 @@
-function getApplicants(flimit, foffset) {
-  // Retrieves json object of all templates retrieved from server
-  //    @limit:  how many templates to retrieve
+function cssSelectTemplate(jli, jform) {
+  // Display template as selected
+  var parent = jli.parent();
+  parent.children(".select_template").toggleClass();
+  jli.toggleClass("select_template");
+  return jli;
+}
+
+function getSubClass(name, flimit, foffset) {
+  // Retrieves json object of subclasses
+  //    @name: name of get ajax route
+  //    @limit:  how many records to retrieve
   //    @offset: item number to start retrieving from
   // Returns a jqXHR object
-  var retval = undefined;
-
   return $.ajax(
     {
-      url: "/action/",
+      url: "/action/get" + name,
       method: "GET",
       data: {
         limit:  flimit,
@@ -17,29 +24,37 @@ function getApplicants(flimit, foffset) {
   );
 }
 
+function applicantTable(jtable, applicants) {
+  // Populates jtable and return list of jQuery objects
+  //  @jtable: jQuery object of <table> to populate
+  //  @applicants: array of applicant objects
+  var promise = $.Deferred();
+  var tbody  = jtable.children("tbody");
+  var retval = [];
 
-
-
-
-
-
-function getTemplates(flimit, foffset) {
-  // Retrieves json object of all templates retrieved from server
-  //    @limit:  how many templates to retrieve
-  //    @offset: item number to start retrieving from
-  // Returns a jqXHR object
-  var retval = undefined;
-
-  return $.ajax(
-    {
-      url: "/action/getTemplates",
-      method: "GET",
-      data: {
-        limit:  flimit,
-        offset: foffset
-      }
+  try {
+    if(jtable === undefined || applicants === undefined) {
+      throw "Parameters undefined.";
     }
-  );
+
+    // For each element in templates object, append to jtable and add to retval
+    $.each(applicants, function(i, value) {
+      var child = $("<tr>" +
+                    "<td>" + value.lastName  + "</td>" +
+                    "<td>" + value.firstName + "</td>" +
+                    "<td>" + value.emailAddress + "</td>" +
+                    "</tr>"
+                   );
+      child.appendTo(tbody);
+      retval.push(child);
+    });
+
+    promise.resolve(retval);
+    return promise;
+  } catch(err) {
+    promise.reject([err]);
+    return promise;
+  }
 }
 
 function templateMenu(jmenu, templates) {
@@ -50,13 +65,14 @@ function templateMenu(jmenu, templates) {
   var retval = [];
 
   try {
-    if(jmenu === undefined || jmenu === undefined) {
+    if(jmenu === undefined || templates === undefined) {
       throw "Parameters undefined.";
     }
 
     // For each element in templates object, append to jmenu and add to retval
     $.each(templates, function(i, value) {
       var child = $("<li class=\"template_menu_li\">" + value.subject + "</li>");
+      child.templateId = value.objectId;
       child.appendTo(jmenu);
       retval.push(child);
     });
@@ -68,6 +84,7 @@ function templateMenu(jmenu, templates) {
     return promise;
   }
 }
+
 
 function templatePreview(jpreview, json) {
   // Populates jpreview

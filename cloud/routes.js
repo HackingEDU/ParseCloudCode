@@ -29,48 +29,75 @@ module.exports.routing = function(req, res) { res.status(200).send(); };
  ****   AJAX   ****
  **** ******** ****
 \**** ******** ****/
-module.exports.sendTemplate = function(req, res) { res.status(200).send(); };
-
-module.exports.getTemplates = function(req, res) {
-  // Retrieve a list of templates from parse database EmailTemplates
+var getSubClass = function(name, limit, offset) {
+  // Retrieve a promise for a list of objects from Parse class
+  //  @name: name of Parse class
   //  @limit: Limit how many templates to retrieve
   //  @offset: record number to start retrieving from
-  var Templates = Parse.Object.extend("EmailTemplates");
-  var query = new Parse.Query(Templates);
-  query.limit(req.query.limit);
-  query.skip(req.query.offset);
+  var promise = Parse.Promise();
 
-  query.find().then(
-    function success(results) {
-      res.status(200).send(results);
+  var Class = Parse.Object.extend(name);
+  var query = new Parse.Query(Class);
+
+  if(limit > 0 && limit !== undefined)
+    query.limit(limit);
+  if(offset > 0 && offset !== undefined)
+    query.skip(offset);
+  return query.find();
+}
+
+module.exports.sendEmail = function(req, res) {
+  // Retrieve a promise for a list of objects from Parse class
+  //  @emails: comma separated email addresses to send
+  //  @template_id: template to send
+  Parse.Cloud.run("emailUsers",
+    {
+      user_emails: req.body.emails,
+      template_id: req.body.template_id
+    }
+  ).then(
+    function saveEmail(retval) {
+      return Parse.Cloud.run("saveEmail",
+        {
+          message_id:  retval.message_id,
+          template_id: retval.template_id
+        }
+      );
+    }
+  ).then(
+    function success(retval) {
+      res.status(200).send(retval);
     },
     function error(err) {
-      res.status(406).send(undefined);
+      res.status(406).send(retval);
+    }
+  );
+};
+
+module.exports.getTemplates = function(req, res) {
+  getSubClass("EmailTemplates", req.query.limit, req.query.offset).then(
+    function success(retval) {
+      res.status(200).send(retval);
+    },
+    function error(err) {
+      res.status(406).send(err);
     }
   );
 };
 
 module.exports.getApplicants = function(req, res) {
-  // Retrieve a list of applicants from parse database applicants
-  //  @limit: Limit how many templates to retrieve
-  //  @offset: record number to start retrieving from
-  var Applicants = Parse.Object.extend("applicants");
-  var query = new Parse.Query(Applicants);
-
-  query.limit(req.query.limit);
-  query.skip(req.query.offset);
-
-  query.find().then(
-    function success(results) {
-      res.status(200).send(results);
+  getSubClass("applicants", req.query.limit, req.query.offset).then(
+    function success(retval) {
+      res.status(200).send(retval);
     },
     function error(err) {
-      res.status(406).send(undefined);
+      res.status(406).send(err);
     }
   );
 };
 
 module.exports.getEmails    = function(req, res) { res.status(200).send(); };
+
 
 
 
@@ -118,7 +145,7 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
       function sendEmail(retval) { // email was validated
         return Parse.Cloud.run("emailUsers",
           {
-            "user_email":  req.body.object.emailAddress,
+            "user_emails":  req.body.object.emailAddress,
             "template_id": template_id
           }
         );
@@ -170,7 +197,7 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
     );
   } else {
     // Let any changes be made
-    res.status(200).send({"success":{}});
+    res.status(200).send({"success": req.body.object });
   }
 };
 

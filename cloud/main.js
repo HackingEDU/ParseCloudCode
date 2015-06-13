@@ -22,8 +22,9 @@ app.get("/tracking",  routes.tracking);
 app.get("/routing",   routes.routing);
 
 // AJAX routes
-app.post("/action/sendTemplate", routes.sendTemplate);
+app.post("/action/sendEmail",    routes.sendEmail);
 app.get("/action/getTemplates",  routes.getTemplates);
+app.get("/action/getApplicants", routes.getApplicants);
 app.get("/action/getEmails",     routes.getEmails);
 // TODO: phase this out...
 app.get("/initializeHooks",      routes.initializeHooks);

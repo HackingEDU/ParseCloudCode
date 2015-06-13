@@ -1,11 +1,29 @@
+/*
+ Color palette
+ Red - FF4242
+ White Green - F4FAD2
+ Burst Green - D4EE5E
+ Grey Green - E1EDB9
+ White - F0F2EB
+*/
+
 html, body {
   height:      100%;
   width:       100%;
+
+  background-color: #F0F2EB;
 
   margin:      0;
   padding:     0;
 
   overflow: hidden;
+}
+
+p, a, li, td {
+  font-family: "Helvetica", "sans-serif";
+  font-weight: bold;
+  font-size: 18;
+  text-decoration: none;
 }
 
 #sidebar_cont, #main_cont {
@@ -16,21 +34,23 @@ html, body {
   width:      15%;
   min-width:  150px;
 
-  margin:     0 -1;
-  border:     1px solid black;
-  box-sizing: border-box;
+  margin:     0;
 }
+
+#sidebar_cont { background-color: #E1ED89; }
+
+#main_cont { background-color: #F4FAD2; }
 
 #main_view {
   display: inline-block;
   vertical-align: top;
 
+  background-color: #F0F2EB;
+
   height:      100%;
   width:       70%;
 
   margin:      0;
-  border:      1px solid black;
-  box-sizing:  border-box;
   overflow: auto;
 }
 
@@ -38,7 +58,6 @@ ul#sidebar_menu, ul#template_menu {
   text-align: center;
   list-style-type: none;
 
-  margin:  0;
   padding: 0;
 }
 
@@ -48,16 +67,14 @@ ul#sidebar_menu, ul#template_menu {
   height:  40px;
   width:   100%;
 
-  margin:  -1px 0;
+  margin:  0;
   padding: 0;
-
-  text-decoration: none;
-
-  border:     1px solid black;
-  box-sizing: border-box;
 }
 
-#template_menu li:hover {
-  color: white;
-  background-color: black;
+#sidebar_menu li:hover {
+  background-color: #FF4242;
+}
+
+#template_menu li:hover, .select_template {
+  background-color: #FF4242;
 }

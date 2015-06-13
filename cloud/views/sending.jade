@@ -1,0 +1,24 @@
+extends ./layout
+
+block script
+  link(type="text/css", rel="stylesheet", href="https://cdn.datatables.net/1.10.7/css/jquery.dataTables.css")
+  link(type="text/css", rel="stylesheet", href="/css/jquery.tableTools.css")
+  script(type="text/javascript", src="/js/dataTables.tableTools.js")
+  script(type="text/javascript", src="/js/parse-header.js")
+  script(type="text/javascript", src="/js/sending.js")
+
+block submenu
+  ul#template_menu
+
+block main
+  div#status_cont
+  div#table_cont
+    table#send_table.display
+      thead
+        td lastName
+        td firstName
+        td emailAddress
+      tbody
+    form#send_form
+      input#send_form_emails(type="hidden", name="emails")
+      input#send_form_template(type="hidden", name="template_id")

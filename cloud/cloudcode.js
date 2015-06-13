@@ -50,7 +50,7 @@ Parse.Cloud.define("validateEmail",
 
 Parse.Cloud.define("emailUsers",
   // Emails a template to a user with a given aray of email addresses
-  //    @user_email: array of email addresses
+  //    @user_emails: comma seperated list of email addresses
   //    @template_id:  ID of template being used
   function(req, res) {
     var Mailgun = require("mailgun");
@@ -69,7 +69,7 @@ Parse.Cloud.define("emailUsers",
           // Create email object for sending
           var email =
             {
-              to:      req.params.user_email,
+              to:      req.params.user_emails,
               from:    retval.get("sender"),
               subject: retval.get("subject"),
               text:    retval.get("strippedText"),
