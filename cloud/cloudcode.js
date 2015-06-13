@@ -107,7 +107,6 @@ Parse.Cloud.define("emailCreateWebHook",
     var mg_keys = require("cloud/keys").mailgun;
 
     // POST https://api:{mgKey}@api.mailgun.net/v3/domains/{domainName}/webhooks
-    console.log();
     var mg_url = "https://api:" + mg_keys.secretKey + "@" + mg_keys.baseURL +
                  "/domains/"    + mg_keys.domainURL + "/webhooks";
     var wb_url = "https://" + ps_keys.baseURL + "/" + req.params.hook_url;

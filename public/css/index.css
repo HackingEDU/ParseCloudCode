@@ -5,36 +5,36 @@ html, body {
   margin:      0;
   padding:     0;
 
-  white-space: nowrap;
+  overflow: hidden;
 }
 
-#sidebar_cont {
+#sidebar_cont, #main_cont {
   display: inline-block;
-  vertical-align: text-top;
+  vertical-align: top;
+
+  height:     100%;
+  width:      15%;
+  min-width:  150px;
+
+  margin:     0 -1;
+  border:     1px solid black;
+  box-sizing: border-box;
+}
+
+#main_view {
+  display: inline-block;
+  vertical-align: top;
 
   height:      100%;
-  width:       15%;
-  min-width:   150px;
+  width:       70%;
 
   margin:      0;
   border:      1px solid black;
   box-sizing:  border-box;
+  overflow: auto;
 }
 
-#main_cont {
-  display: inline-block;
-  vertical-align: text-top;
-
-  height:      100%;
-  width:       85%;
-  min-width:   800px;
-
-  margin:      0;
-  border:      1px solid black;
-  box-sizing:  border-box;
-}
-
-#sidebar_menu {
+ul#sidebar_menu, ul#template_menu {
   text-align: center;
   list-style-type: none;
 
@@ -42,7 +42,7 @@ html, body {
   padding: 0;
 }
 
-#sidebar_menu li, #sidebar_menu a {
+#sidebar_menu li, #template_menu li {
   display: block;
 
   height:  40px;
@@ -52,9 +52,12 @@ html, body {
   padding: 0;
 
   text-decoration: none;
-}
 
-#sidebar_menu li {
   border:     1px solid black;
   box-sizing: border-box;
+}
+
+#template_menu li:hover {
+  color: white;
+  background-color: black;
 }
