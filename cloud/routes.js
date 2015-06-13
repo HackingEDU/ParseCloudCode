@@ -16,7 +16,9 @@ module.exports.index = function(req, res)    {
 module.exports.template = function(req, res) {
   res.status(200).render("templates");
 };
-module.exports.send = function(req, res)     { res.status(200).send(); };
+module.exports.sending  = function(req, res) {
+  res.status(200).render("sending");
+};
 module.exports.tracking = function(req, res) { res.status(200).send(); };
 module.exports.routing = function(req, res) { res.status(200).send(); };
 
@@ -28,6 +30,7 @@ module.exports.routing = function(req, res) { res.status(200).send(); };
  **** ******** ****
 \**** ******** ****/
 module.exports.sendTemplate = function(req, res) { res.status(200).send(); };
+
 module.exports.getTemplates = function(req, res) {
   // Retrieve a list of templates from parse database EmailTemplates
   //  @limit: Limit how many templates to retrieve
@@ -46,6 +49,27 @@ module.exports.getTemplates = function(req, res) {
     }
   );
 };
+
+module.exports.getApplicants = function(req, res) {
+  // Retrieve a list of applicants from parse database applicants
+  //  @limit: Limit how many templates to retrieve
+  //  @offset: record number to start retrieving from
+  var Applicants = Parse.Object.extend("applicants");
+  var query = new Parse.Query(Applicants);
+
+  query.limit(req.query.limit);
+  query.skip(req.query.offset);
+
+  query.find().then(
+    function success(results) {
+      res.status(200).send(results);
+    },
+    function error(err) {
+      res.status(406).send(undefined);
+    }
+  );
+};
+
 module.exports.getEmails    = function(req, res) { res.status(200).send(); };
 
 

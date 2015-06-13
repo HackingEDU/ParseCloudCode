@@ -1,3 +1,28 @@
+function getApplicants(flimit, foffset) {
+  // Retrieves json object of all templates retrieved from server
+  //    @limit:  how many templates to retrieve
+  //    @offset: item number to start retrieving from
+  // Returns a jqXHR object
+  var retval = undefined;
+
+  return $.ajax(
+    {
+      url: "/action/",
+      method: "GET",
+      data: {
+        limit:  flimit,
+        offset: foffset
+      }
+    }
+  );
+}
+
+
+
+
+
+
+
 function getTemplates(flimit, foffset) {
   // Retrieves json object of all templates retrieved from server
   //    @limit:  how many templates to retrieve
