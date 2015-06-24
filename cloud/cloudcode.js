@@ -7,44 +7,51 @@ module.exports = {} // Parse cloud definitions do not need to be exported
  * ***************** *
  * ***************** *
 \*                   */
-Parse.Cloud.define("validateEmail",
+Parse.Cloud.define("validateFields",
   // Checks if email is valid and can be sent to
   //    @email_address: potentially valid email address
   function(req, res) {
-    // Do nothing and return true
-    var  mg_keys = require("cloud/keys").mailgun;
-    var mg_url = "https://api:" + mg_keys.publicKey + "@" + mg_keys.baseURL +
-                 "/address/validate";
+    var mg_keys = require("cloud/keys").mailgun;
 
+    var ajax_counter = 2;
+    var rejections   = [];
+
+    function checkEnd() {
+      if(--ajax_counter <= 0) {
+        if(rejections.length > 0) {
+          res.error({
+            code: 100,
+            message: "Invalid fields",
+            fields: rejections
+          });
+        } else {
+          res.success(true);
+        }
+      }
+    }
+
+    // Validate email
     Parse.Cloud.httpRequest(
       {
         method: "GET",
-        url: mg_url,
-        params: {
-          address: req.params.email_address
-        },
-        success: function(httpRes) {
-          /* === Sample response ===
-            "is_valid": true,
-            "address": "foo@mailgun.net",
-            "parts": {
-              "display_name": null //Deprecated Field, will always be null
-                "local_part": "foo",
-                "domain": "mailgun.net",
-            },
-            "did_you_mean": null
-          */
-          if(httpRes.data.is_valid) {
-            res.success(true);
-          } else {
-            res.error(false);
-          }
-        },
-        error: function(httpRes) {
-          res.error(false);
+           url: "https://api:" + mg_keys.publicKey + "@" + mg_keys.baseURL +
+                 "/address/validate",
+        params: { address: req.params.email_address },
+      }
+    ).always(
+      function callback(response) {
+        if(!httpRes.data.is_valid || httpRes.data.is_valid === undefined) {
+          rejections.push("email");
         }
+        checkEnd();
       }
     );
+
+    // Validate school
+    // TODO: school validation...
+    // possibly another HTTP request? or an internal list of schools
+    // yeah let's do that
+    checkEnd();
   }
 );
 
