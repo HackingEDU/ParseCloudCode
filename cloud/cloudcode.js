@@ -30,6 +30,8 @@ Parse.Cloud.define("validateFields",
       }
     }
 
+    // TODO: additional, secure validation of fields
+
     // Validate email
     Parse.Cloud.httpRequest(
       {
@@ -116,7 +118,7 @@ Parse.Cloud.define("emailCreateWebHook",
     // POST https://api:{mgKey}@api.mailgun.net/v3/domains/{domainName}/webhooks
     var mg_url = "https://api:" + mg_keys.secretKey + "@" + mg_keys.baseURL +
                  "/domains/"    + mg_keys.domainURL + "/webhooks";
-    var wb_url = "https://" + ps_keys.baseURL + "/" + req.params.hook_url;
+    var wb_url = "https://" + ps_keys.baseURL + "/webhooks/" + req.params.hook_url;
 
     Parse.Cloud.httpRequest(
       {
@@ -131,7 +133,7 @@ Parse.Cloud.define("emailCreateWebHook",
           res.success(wb_url);
         },
         error: function(httpRes) {
-          res.error(false);
+          res.error(JSON.parse(httpRes.text).message);
         }
       }
     );

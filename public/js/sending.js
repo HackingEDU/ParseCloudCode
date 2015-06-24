@@ -91,7 +91,7 @@ $(document).ready(function() {
 
   // Populate applicant table
   var applicants = undefined;
-  getSubClass("Applicants").then(
+  getSubClass("Users").then(
     function success(data, status) {
       applicants = data;
       return applicantTable(send_table, applicants);
