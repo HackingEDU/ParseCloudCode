@@ -40,9 +40,9 @@ function applicantTable(jtable, applicants) {
     // For each element in templates object, append to jtable and add to retval
     $.each(applicants, function(i, value) {
       var child = $("<tr>" +
-                    "<td>" + value.lastName  + "</td>" +
-                    "<td>" + value.firstName + "</td>" +
-                    "<td>" + value.emailAddress + "</td>" +
+                    "<td>" + value.lastname  + "</td>" +
+                    "<td>" + value.firstname + "</td>" +
+                    "<td>" + value.email + "</td>" +
                     "</tr>"
                    );
       child.appendTo(tbody);
