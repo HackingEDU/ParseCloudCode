@@ -14,7 +14,7 @@ function getSubClass(name, flimit, foffset) {
   // Returns a jqXHR object
   return $.ajax(
     {
-      url: "/action/get" + name,
+      url: "/actions/get" + name,
       method: "GET",
       data: {
         limit:  flimit,
