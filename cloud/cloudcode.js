@@ -131,7 +131,7 @@ Parse.Cloud.define("emailCreateWebHook",
           res.success(wb_url);
         },
         error: function(httpRes) {
-          res.error(false);
+          res.error(JSON.parse(httpRes.text).message);
         }
       }
     );
