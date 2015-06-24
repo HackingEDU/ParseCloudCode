@@ -2,6 +2,7 @@
 // These two lines are required to initialize Express in Cloud Code.
 var     express = require("express");
 var         app = express();
+var  cloud_code = require("cloud/cloudcode.js");
 var      routes = require("cloud/routes");
 var mg_webhooks = require("cloud/keys").mailgun.webhooks;
 
