@@ -3,12 +3,16 @@
     "parseVersion": "1.4.2"
   },
   "applications": {
+    "HackingEDU": {
+      "applicationId": "appID",
+      "masterKey": "masterKey"
+    },
     "Test Database": {
       "applicationId": "appID",
       "masterKey": "masterKey"
     },
     "_default": {
-      "link": "Test Database"
+      "link": "HackingEDU"
     }
   }
 }
