@@ -46,6 +46,38 @@ var getSubClass = function(name, limit, offset) {
   return query.find();
 }
 
+module.exports.newUser = function(req, res) {
+  try {
+    Parse.Cloud.run("validateFields").then(
+      function saveUser(retval) {
+        // retval should be always be true if cloud code returned success
+        if(!retval) throw { code: 109, message: "Validation error!" };
+
+        var user = new Parse.User();
+        delete req.body.confirm_password;
+        user.set(req.body);
+        user.set("username", req.body.email); // Mandatory field... set same as email
+        return user.signUp(null);
+      },
+      function rejectUser(err) {
+        // 400: Bad request, malformed syntax
+        res.status(400).send(err);
+      }
+    ).then(
+      function success(user) {
+        // TODO: return undefined
+        res.end("Account created");
+      },
+      function error(err) {
+        res.end(JSON.stringify(err));
+      }
+    );
+  } catch(e) {
+    console.log(e);
+    res.status(400).send(e);
+  }
+};
+
 module.exports.sendEmail = function(req, res) {
   // Retrieve a promise for a list of objects from Parse class
   //  @emails: comma separated email addresses to send
@@ -134,14 +166,8 @@ module.exports[mg_keys.webhooks["onboard"]] = function(req, res) {
 
   if(req.body.object.sentRegEmail == undefined ||
      req.body.object.sentRegEmail == false) { // Object is newly created
+    // Search for template email marked type: "onboard"
     tquery.first().then(
-      function(template) {
-        template_id = template.id;
-        return Parse.Cloud.run("validateEmail",
-          { email_address: req.body.object.emailAddress }
-        );
-      }
-    ).then(
       function sendEmail(retval) { // email was validated
         return Parse.Cloud.run("emailUsers",
           {
