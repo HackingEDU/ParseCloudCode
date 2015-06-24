@@ -58,6 +58,8 @@ module.exports.actions = function(req, res) {
   switch(req.path) {
     case "/newUser": {
       try {
+        if(!req.xhr) throw { code: 407, message: "Internal server error" };
+
         Parse.Cloud.run("validateFields").then(
           function saveUser(retval) {
             // retval should be always be true if cloud code returned success
@@ -82,6 +84,7 @@ module.exports.actions = function(req, res) {
             res.end(JSON.stringify(err));
           }
         );
+
       } catch(e) {
         console.log(e);
         res.status(400).send(e);
@@ -93,68 +96,90 @@ module.exports.actions = function(req, res) {
       // Retrieve a promise for a list of objects from Parse class
       //  @emails: comma separated email addresses to send
       //  @template_id: template to send
-      Parse.Cloud.run("emailUsers",
-        {
-          user_emails: req.body.emails,
-          template_id: req.body.template_id
-        }
-      ).then(
-        function saveEmail(retval) {
-          return Parse.Cloud.run("saveEmail",
+      try {
+        if(!req.xhr) throw { code: 407, message: "Internal server error" };
+
+        Parse.Cloud.run("emailUsers",
+          {
+            user_emails: req.body.emails,
+            template_id: req.body.template_id
+          }
+        ).then(
+          function saveEmail(retval) {
+            return Parse.Cloud.run("saveEmail",
               {
                 message_id:  retval.message_id,
                 template_id: retval.template_id
               }
-              );
-        }
-      ).then(
-        function success(retval) {
-          res.status(200).send(retval);
-        },
-        function error(err) {
-          res.status(406).send(retval);
-        }
-      );
+            );
+          }
+        ).then(
+          function success(retval) {
+            res.status(200).send(retval);
+          },
+          function error(err) {
+            res.status(406).send(retval);
+          }
+        );
+      } catch(e) {
+        res.status(406).send();
+      }
       break;
     }
 
     case "/getTemplates": {
-      getSubClass("EmailTemplates", req.query.limit, req.query.offset).then(
-        function success(retval) {
-          res.status(200).send(retval);
-        },
-        function error(err) {
-          res.status(406).send(err);
-        }
-      );
+      try {
+        if(!req.xhr) throw { code: 407, message: "Internal server error" };
+        getSubClass("EmailTemplates", req.query.limit, req.query.offset).then(
+          function success(retval) {
+            res.status(200).send(retval);
+          },
+          function error(err) {
+            res.status(406).send(err);
+          }
+        );
+      } catch(e) {
+        console.log(e);
+        res.status(406).send(e);
+      }
       break;
     }
 
     case "/getUsers": {
-      var query = new Parse.Query(Parse.User);
+      try {
+        if(!req.xhr) throw { code: 407, message: "Internal server error" };
+        var query = new Parse.Query(Parse.User);
 
-      if(req.query.limit > 0 && req.query.limit !== undefined)
-        query.limit(req.query.limit);
-      if(req.query.offset > 0 && req.query.offset !== undefined)
-        query.skip(req.query.offset);
+        if(req.query.limit > 0 && req.query.limit !== undefined)
+          query.limit(req.query.limit);
+        if(req.query.offset > 0 && req.query.offset !== undefined)
+          query.skip(req.query.offset);
 
-      // TODO: finalize column names
-      query.select(["firstname", "lastname", "email", "hacker", "veteran"]);
+        // TODO: finalize column names
+        query.select(["firstname", "lastname", "email", "hacker", "veteran"]);
 
-      query.find().then(
-        function success(retval) {
-          res.status(200).send(retval);
-        },
-        function error(err) {
-          res.status(406).send(err);
-        }
-      );
+        query.find().then(
+          function success(retval) {
+            res.status(200).send(retval);
+          },
+          function error(err) {
+            res.status(406).send(err);
+          }
+        );
+      } catch(e) {
+        res.status(406).send(e);
+      }
       break;
     }
 
     // TODO: get emails
     case "/getEmails": {
-      res.status(200).send();
+      try {
+        if(!req.xhr) throw { code: 407, message: "Internal server error" };
+        res.status(200).send();
+      } catch(e) {
+        res.status(406).send(e);
+      }
       break;
     }
 
