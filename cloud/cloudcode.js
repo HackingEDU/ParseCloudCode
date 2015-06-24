@@ -30,6 +30,8 @@ Parse.Cloud.define("validateFields",
       }
     }
 
+    // TODO: additional, secure validation of fields
+
     // Validate email
     Parse.Cloud.httpRequest(
       {

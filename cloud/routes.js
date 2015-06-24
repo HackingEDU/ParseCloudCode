@@ -56,9 +56,10 @@ var getSubClass = function(name, limit, offset) {
 
 module.exports.actions = function(req, res) {
   switch(req.path) {
-    case "/newUser": {
+    case "/" + mg_keys.webhooks["newuser"]: {
       try {
         if(!req.xhr) throw { code: 407, message: "Internal server error" };
+        // TODO: verify post request is coming from hackingedu.co...
 
         Parse.Cloud.run("validateFields").then(
           function saveUser(retval) {
@@ -68,6 +69,7 @@ module.exports.actions = function(req, res) {
             var user = new Parse.User();
             delete req.body.confirm_password;
             user.set(req.body);
+            // TODO: generate registration url hash
             user.set("username", req.body.email); // Mandatory field... set same as email
             return user.signUp(null);
           },
