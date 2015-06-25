@@ -8,12 +8,12 @@ module.exports = {} // Parse cloud definitions do not need to be exported
  * ***************** *
 \*                   */
 Parse.Cloud.define("validateFields",
-  // Checks if email is valid and can be sent to
-  //    @email_address: potentially valid email address
+  // Checks if body is valid
+  //    @body:
   function(req, res) {
     var mg_keys = require("cloud/keys").mailgun;
 
-    var ajax_counter = 2;
+    var ajax_counter = 2; // Number of fields to validate
     var rejections   = [];
 
     function checkEnd() {
@@ -30,19 +30,17 @@ Parse.Cloud.define("validateFields",
       }
     }
 
-    // TODO: additional, secure validation of fields
-
     // Validate email
     Parse.Cloud.httpRequest(
       {
         method: "GET",
            url: "https://api:" + mg_keys.publicKey + "@" + mg_keys.baseURL +
                  "/address/validate",
-        params: { address: req.params.email_address },
+        params: { address: req.params.body.email },
       }
     ).always(
       function callback(response) {
-        if(!httpRes.data.is_valid || httpRes.data.is_valid === undefined) {
+        if(!response.data.is_valid || response.data.is_valid === undefined) {
           rejections.push("email");
         }
         checkEnd();
@@ -54,6 +52,8 @@ Parse.Cloud.define("validateFields",
     // possibly another HTTP request? or an internal list of schools
     // yeah let's do that
     checkEnd();
+
+    // TODO: additional fields
   }
 );
 
@@ -145,6 +145,8 @@ Parse.Cloud.define("emailCreateTemplate",
   //    @body: returned when sending email from mailgun
   //    @sender:  Parse object to template
   function(req, res) {
+    var mg_keys = require("cloud/keys").mailgun;
+
     try {
       // Default values
       if(req.params.body === undefined) {

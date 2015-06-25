@@ -57,15 +57,14 @@ var getSubClass = function(name, limit, offset) {
 module.exports.actions = function(req, res) {
   switch(req.path) {
     case "/" + mg_keys.webhooks["newuser"]: {
+      // Creates a new user based on req.body POST
+      // req.body MUST have an email and a password field
       try {
-        if(!req.xhr) throw { code: 407, message: "Internal server error" };
+        //if(!req.xhr) throw { code: 407, message: "Internal server error" };
         // TODO: verify post request is coming from hackingedu.co...
 
-        Parse.Cloud.run("validateFields").then(
+        Parse.Cloud.run("validateFields", { body: req.body }).then(
           function saveUser(retval) {
-            // retval should be always be true if cloud code returned success
-            if(!retval) throw { code: 109, message: "Validation error!" };
-
             var user = new Parse.User();
             delete req.body.confirm_password;
             user.set(req.body);
@@ -73,18 +72,24 @@ module.exports.actions = function(req, res) {
             user.set("username", req.body.email); // Mandatory field... set same as email
             return user.signUp(null);
           },
-          function rejectUser(err) {
+          function rejectFields(err) {
             // 400: Bad request, malformed syntax
-            res.status(400).send(err);
+            var promise = new Parse.Promise();
+            promise.reject( { code: 109, message: "Validation error!" } );
+            return promise;
           }
+
         ).then(
           function success(user) {
             // TODO: return undefined
             res.end("Account created");
           },
-          function error(err) {
-            res.end(JSON.stringify(err));
+          function rejectUser(err) {
+            // 400: Bad request, malformed syntax
+            console.log("Rejecting user creation.");
+            res.status(400).send(err);
           }
+
         );
 
       } catch(e) {
@@ -233,7 +238,6 @@ module.exports.webhooks = function(req, res) {
       Parse.Cloud.run("emailCreateTemplate",
         {
           body: req.body,
-          sender: req.body["from"]
         }
       ).then(
         function(retval) {
