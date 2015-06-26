@@ -56,6 +56,20 @@ var getSubClass = function(name, limit, offset) {
 
 module.exports.actions = function(req, res) {
   switch(req.path) {
+    case "/" + mg_keys.webhooks["validate"]: {
+      // Validate field
+      //  @: { username: "user", ... }
+      // req.body MUST have an email and a password field
+      Parse.Cloud.run("validateFields", { body: req.body }).then(
+        function success(retval) {
+          res.status(200).send(retval);
+        },
+        function failed(err) {
+          res.status(406).send(e);
+        }
+      );
+      break;
+    }
     case "/" + mg_keys.webhooks["newuser"]: {
       // Creates a new user based on req.body POST
       // req.body MUST have an email and a password field
@@ -63,31 +77,22 @@ module.exports.actions = function(req, res) {
         //if(!req.xhr) throw { code: 407, message: "Internal server error" };
         // TODO: verify post request is coming from hackingedu.co...
 
-        Parse.Cloud.run("validateFields", { body: req.body }).then(
-          function saveUser(retval) {
-            var user = new Parse.User();
-            delete req.body.confirm_password;
-            user.set(req.body);
-            // TODO: generate registration url hash
-            user.set("username", req.body.email); // Mandatory field... set same as email
-            return user.signUp(null);
-          },
-          function rejectFields(err) {
-            // 400: Bad request, malformed syntax
-            var promise = new Parse.Promise();
-            promise.reject( { code: 109, message: "Validation error!" } );
-            return promise;
-          }
-
-        ).then(
+        var user = new Parse.User();
+        delete req.body.confirm_password;
+        user.set(req.body);
+        // TODO: generate registration url hash
+        user.set("username", req.body.email); // Mandatory field... set same as email
+        user.signUp(null).then(
           function success(user) {
             // TODO: return undefined
-            res.end("Account created");
+            res.status(200).send({
+              code: 200,
+              message: "User saved"
+            });
           },
           function rejectUser(err) {
             // 400: Bad request, malformed syntax
-            console.log("Rejecting user creation.");
-            res.status(400).send(err);
+            res.status(406).send(err);
           }
 
         );

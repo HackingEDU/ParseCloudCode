@@ -78,21 +78,21 @@ Parse.Cloud.beforeSave(Parse.User, function(req, res) {
           console.log(arguments);
 
           // Update user fields
-          user.emailVerified = true;
-          user.sentRegEmail  = true;
-          //user.regEmail      =
-            //{
-                 //"__type": "Pointer",
-              //"className": "Emails",
-               //"objectId": arguments[0].id // Doesn't matter... just save first id
-            //}
+          user.set("verifiedEmail", true);
+          user.set("sentRegEmail",  true);
+          user.regEmail      =
+            {
+                 "__type": "Pointer",
+              "className": "Emails",
+               "objectId": arguments[0].id // Doesn't matter... just save first id
+            }
           res.success(user);
         },
         function(error) { // Problems sending email(s)
           // Handle gracefully
           console.log("Error sending/saving email...", error);
-          user.emailVerified = false;
-          user.sentRegEmail  = false;
+          user.set("verifiedEmail", false);
+          user.set("sentRegEmail",  false);
           res.success(user);
         }
       );
@@ -111,47 +111,57 @@ Parse.Cloud.define("validateFields",
   // Checks if body is valid
   //    @object: { username: "user", ... }
   function(req, res) {
-    var ajax_counter = 2; // Number of fields to validate
-    var rejections   = [];
+    try {
+      var ajax_counter = 2; // Number of fields to validate
+      var rejections   = [];
 
-    function checkEnd() {
-      if(--ajax_counter <= 0) {
-        if(rejections.length > 0) {
-          res.error({
-            code: 100,
-            message: "Invalid fields",
-            fields: rejections
-          });
-        } else {
-          res.success(true);
+      function checkEnd() {
+        if(--ajax_counter <= 0) {
+          if(rejections.length > 0) {
+            res.error({
+              code: 406,
+              message: "Invalid fields",
+              fields: rejections
+            });
+          } else {
+            res.success({
+              code: 200,
+              message: "All fields are valid",
+              fields: []
+            });
+          }
         }
       }
+
+      // Validate email
+      Parse.Cloud.httpRequest(
+        {
+          method: "GET",
+             url: "https://api:" + mg_keys.publicKey + "@" + mg_keys.baseURL +
+                   "/address/validate",
+          params: { address: req.params.body.email },
+        }
+      ).always(
+        function callback(response) {
+          if(!response.data.is_valid || response.data.is_valid === undefined) {
+            rejections.push("email");
+          }
+          checkEnd();
+        }
+      );
+
+      // Validate school
+      // TODO: school validation...
+      // possibly another HTTP request? or an internal list of schools
+      // yeah let's do that
+      checkEnd();
+
+      // TODO: additional fields
+
+    } catch(e) {
+      console.log("Validation exception occured.");
+      res.error(e);
     }
-
-    // Validate email
-    Parse.Cloud.httpRequest(
-      {
-        method: "GET",
-           url: "https://api:" + mg_keys.publicKey + "@" + mg_keys.baseURL +
-                 "/address/validate",
-        params: { address: req.params.body.email },
-      }
-    ).always(
-      function callback(response) {
-        if(!response.data.is_valid || response.data.is_valid === undefined) {
-          rejections.push("email");
-        }
-        checkEnd();
-      }
-    );
-
-    // Validate school
-    // TODO: school validation...
-    // possibly another HTTP request? or an internal list of schools
-    // yeah let's do that
-    checkEnd();
-
-    // TODO: additional fields
   }
 );
 
