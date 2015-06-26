@@ -56,6 +56,20 @@ var getSubClass = function(name, limit, offset) {
 
 module.exports.actions = function(req, res) {
   switch(req.path) {
+    case "/" + mg_keys.webhooks["validate"]: {
+      // Validate field
+      //  @: { username: "user", ... }
+      // req.body MUST have an email and a password field
+      Parse.Cloud.run("validateFields", { body: req.body }).then(
+        function success(retval) {
+          res.status(200).send(retval);
+        },
+        function failed(err) {
+          res.status(406).send(e);
+        }
+      );
+      break;
+    }
     case "/" + mg_keys.webhooks["newuser"]: {
       // Creates a new user based on req.body POST
       // req.body MUST have an email and a password field
@@ -63,31 +77,22 @@ module.exports.actions = function(req, res) {
         //if(!req.xhr) throw { code: 407, message: "Internal server error" };
         // TODO: verify post request is coming from hackingedu.co...
 
-        Parse.Cloud.run("validateFields", { body: req.body }).then(
-          function saveUser(retval) {
-            var user = new Parse.User();
-            delete req.body.confirm_password;
-            user.set(req.body);
-            // TODO: generate registration url hash
-            user.set("username", req.body.email); // Mandatory field... set same as email
-            return user.signUp(null);
-          },
-          function rejectFields(err) {
-            // 400: Bad request, malformed syntax
-            var promise = new Parse.Promise();
-            promise.reject( { code: 109, message: "Validation error!" } );
-            return promise;
-          }
-
-        ).then(
+        var user = new Parse.User();
+        delete req.body.confirm_password;
+        user.set(req.body);
+        // TODO: generate registration url hash
+        user.set("username", req.body.email); // Mandatory field... set same as email
+        user.signUp(null).then(
           function success(user) {
             // TODO: return undefined
-            res.end("Account created");
+            res.status(200).send({
+              code: 200,
+              message: "User saved"
+            });
           },
           function rejectUser(err) {
             // 400: Bad request, malformed syntax
-            console.log("Rejecting user creation.");
-            res.status(400).send(err);
+            res.status(406).send(err);
           }
 
         );
@@ -105,6 +110,7 @@ module.exports.actions = function(req, res) {
       //  @template_id: template to send
       try {
         if(!req.xhr) throw { code: 407, message: "Internal server error" };
+        // TODO: see if we can post req.body.emails as array instead...
 
         Parse.Cloud.run("emailUsers",
           {
@@ -112,14 +118,23 @@ module.exports.actions = function(req, res) {
             template_id: req.body.template_id
           }
         ).then(
-          function saveEmail(retval) {
-            return Parse.Cloud.run("saveEmail",
-              {
-                message_id:  retval.message_id,
-                template_id: retval.template_id
-              }
-            );
+          function saveEmails(retval) {
+            var promises = [];
+
+            // Save each email sent
+            for(var i = 0; i < retval.length; i++) {
+              promises.push(
+                Parse.Cloud.run("saveEmail",
+                  {
+                    message_id:  retval[i].message_id,
+                    template_id: retval[i].template_id
+                  }
+                )
+              );
+            }
+            return Parse.Promise.when(promises);
           }
+
         ).then(
           function success(retval) {
             res.status(200).send(retval);
@@ -248,78 +263,6 @@ module.exports.webhooks = function(req, res) {
           res.status(406).send();
         }
       );
-      break;
-    }
-
-    case "/" + mg_keys.webhooks["onboard"]: {
-      // Parse beforeSave webhook when object is created or modified
-      // Sends email template with the type "onboard"
-      var Templates = Parse.Object.extend("EmailTemplates");
-      var tquery = new Parse.Query(Templates);
-      var template_id = undefined;
-      tquery.equalTo("type", "onboard");
-
-      if(req.body.object.sentRegEmail == undefined ||
-         req.body.object.sentRegEmail == false) { // Object is newly created
-        // Search for template email marked type: "onboard"
-        tquery.first().then(
-          function sendEmail(retval) { // email was validated
-            return Parse.Cloud.run("emailUsers",
-              {
-                "user_emails":  req.body.object.emailAddress,
-                "template_id": template_id
-              }
-            );
-          }
-        ).then(
-          function saveEmail(retval) {
-            return Parse.Cloud.run("saveEmail",
-              {
-                message_id:  retval.message_id,
-                template_id: retval.template_id
-              }
-            );
-          }
-        ).then(
-          function setApplicant(retval) {
-            // email object saved, sent reg email saved
-            // Respond success object with updated keys
-            res.send(
-              {
-                "success":
-                {
-                  "verifiedEmail": true,
-                  "sentRegEmail": true,
-                  "emailAddress": req.body.object.emailAddress,
-                  "regEmail":
-                    {
-                         "__type": "Pointer",
-                      "className": "Emails",
-                       "objectId": retval.id
-                    }
-                }
-              }
-            );
-          },
-          function errorApplicant(error) {
-            // Error (most likely validating email), but handle gracefully
-            console.log(error);
-            res.send(
-              {
-                "success":
-                {
-                  "verifiedEmail": false,
-                  "sentRegEmail": false,
-                  "emailAddress": req.body.object.emailAddress,
-                }
-              }
-            );
-          }
-        );
-      } else {
-        // Let any changes be made
-        res.status(200).send({"success": req.body.object });
-      }
       break;
     }
 
