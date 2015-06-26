@@ -2,6 +2,7 @@
 var api_keys = require("cloud/keys");
 var  ps_keys = api_keys.parse;
 var  mg_keys = api_keys.mailgun;
+var      md5 = require("cloud/md5").hex_md5;
 
 /**** ******** ****\
  **** ******** ****
@@ -82,16 +83,15 @@ module.exports.actions = function(req, res) {
         user.set(req.body);
         // TODO: generate registration url hash
         user.set("username", req.body.email); // Mandatory field... set same as email
+        user.set("hash", md5(req.body.email));
         user.signUp(null).then(
           function success(user) {
-            // TODO: return undefined
             res.status(200).send({
               code: 200,
               message: "User saved"
             });
           },
           function rejectUser(err) {
-            // 400: Bad request, malformed syntax
             res.status(406).send(err);
           }
 

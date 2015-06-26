@@ -24,7 +24,7 @@ function templateReplace(html,data) {
  * ***************** *
  * ***************** *
 \*                   */
-Parse.Cloud.beforeSave(Parse.User, function(req, res) {
+Parse.Cloud.afterSave(Parse.User, function(req) {
     //  Email user before finally saving
     //  Parse.Cloud.run("validateFields") should be ran before this...
     //
@@ -89,23 +89,19 @@ Parse.Cloud.beforeSave(Parse.User, function(req, res) {
 
           user.set("emailsReceived", emails_received);
           user.set("verifiedEmail",  true); // TODO: move this to a registration hook
+          promises.push(user.save(null));
 
           return Parse.Promise.when(promises);
         }
-      ).then( // Save user
-        function saveUsers() {
-          res.success(user);
-        },
-        function(error) { // Problems sending email(s)
-          // Handle gracefully
+      ).fail( // Save user
+        function(error) { // Problems sending email(s) or saving user
+          // TODO: seperate error checking for saving user... we really
+          // shouldn't lump these two together
           console.log("Error sending/saving email...", error);
           user.set("verifiedEmail", false); // Need to reverify email
           res.success(user);
         }
       );
-    } else {
-      // No need to change any fields
-      res.success(user);
     }
   }
 );
@@ -242,6 +238,9 @@ Parse.Cloud.define("emailUsers",
               data[key] = val;
             }
           }
+
+          data["unsubscribe"] = mg_keys.unsubscribeURL +
+                                "?q=" + user.get("hash"); // TODO:
           // Replace template variables
           email.html = templateReplace(email.html, data);
 
@@ -318,7 +317,7 @@ Parse.Cloud.define("emailCreateTemplate",
         res.error("No body specified");
       }
       if(req.params.sender === undefined) {
-        req.params.sender = "no-reply@hackingedu.co";
+        req.params.sender = "team@hackingedu.co";
       }
 
       // Create new template
