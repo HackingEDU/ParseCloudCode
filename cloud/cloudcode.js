@@ -6,6 +6,17 @@ var ps_keys  = all_keys.parse;
 var  mg_keys = all_keys.mailgun;
 Mailgun.initialize(mg_keys.domainURL, mg_keys.secretKey);
 
+function templateReplace(html,data) {
+  // @html: string for variables to replace
+  // @data: object containing { word: "replaceWith", ... }
+  return html.replace(/%[a-zA-Z]+%/g,
+   function(key) {
+     key = key.slice(1, -1);
+     return data.hasOwnProperty(key) ? data[key] : "";
+   }
+  );
+}
+
 /*                   *\
  * ***************** *
  * ***************** *
@@ -36,7 +47,6 @@ Parse.Cloud.beforeSave(Parse.User, function(req, res) {
     var user = req.object;
     var template_id = undefined;
     var emails_received = user.get("emailsReceived");
-    console.log(emails_received);
 
     // If no emails has ever been sent to this user...
     if(emails_received === undefined || emails_received.length === 0) {
@@ -193,10 +203,12 @@ Parse.Cloud.define("emailUsers",
 
     Parse.Promise.when(
       email_query.get(req.params.template_id), // Look for email template
-      user_query.containedIn("email", emails)  // Filter only to users in emails
+      user_query.equalTo("email", emails[0]).first()   // Filter only to users in emails
+      // TODO: hack, this only selects first email
     ).then(
-      function sendEmails(template, user_list) {
+      function sendEmails(template, user) {
         // @template:  template object
+        // @user: TODO: hack
         // @user_list: list of parse objects
         var promises = [];
 
@@ -213,7 +225,25 @@ Parse.Cloud.define("emailUsers",
               html:    template.get("bodyHTML")
             };
 
-          // TODO: Replace template variables here
+          // Retrieve all template variables specified in email
+          // Create template matching object
+          var keys = email.html.match(/%[a-zA-Z]+%/g);
+          var data = {};
+
+          for(var i = 0; i < keys.length; i++) {
+            // Slice off % at ends
+            var key = keys[i].slice(1, -1);
+            var val = user.get(key);
+
+            // TODO: check what gets returned if user[key] doesn't exist
+            if(val === undefined || val == "") {
+              data[key] = "<b>" + keys[i] + "</b>";
+            } else {
+              data[key] = val;
+            }
+          }
+          // Replace template variables
+          email.html = templateReplace(email.html, data);
 
           // Send email object
           promises.push(Mailgun.sendEmail(email));
