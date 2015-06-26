@@ -1,18 +1,116 @@
 module.exports = {} // Parse cloud definitions do not need to be exported
 
+var Mailgun  = require("mailgun");
+var all_keys = require("cloud/keys");
+var ps_keys  = all_keys.parse;
+var  mg_keys = all_keys.mailgun;
+Mailgun.initialize(mg_keys.domainURL, mg_keys.secretKey);
+
 /*                   *\
  * ***************** *
  * ***************** *
- * Mailgun functions *
+ * *****Webhooks**** *
  * ***************** *
  * ***************** *
 \*                   */
+Parse.Cloud.beforeSave(Parse.User, function(req, res) {
+    //  Email user before finally saving
+    //  Parse.Cloud.run("validateFields") should be ran before this...
+    //
+    //  @req: {
+    //    installationId: string
+    //    master: bool, if master key was used
+    //    object: actual Parse object
+    //    user: if !=undefined, user that made request
+    //    }
+    //  @res: {
+    //    res.succes()
+    //    res.error()
+    //  }
+    // console.log(req, res); Probably not a good idea
+    Parse.Cloud.useMasterKey();
+    var acl = new Parse.ACL();
+    acl.setPublicReadAccess(true);
+    req.object.setACL(acl);
+
+    var user = req.object;
+    var template_id = undefined;
+    var sent_reg = user.sentRegEmail;
+
+    if(sent_reg == undefined || sent_reg == false) { // Object is newly created
+      // Set up template query
+      var Templates = Parse.Object.extend("EmailTemplates");
+      var tquery = new Parse.Query(Templates);
+      // Search for first template email marked type: "onboard"
+      tquery.equalTo("type", "onboard");
+
+      tquery.first().then( // Retrieve template email
+        function sendEmail(retval) {
+          template_id = retval.id;
+
+          return Parse.Cloud.run("emailUsers",
+            {
+              "user_emails": user.get("username"),
+              "template_id": template_id
+            }
+          );
+        }
+      ).then( // Save email
+        function saveEmails(retval) {
+          // Email(s) sent successfully
+          var promises = [];
+
+          for(var i = 0; i < retval.length; i++) {
+            promises.push(
+              Parse.Cloud.run("saveEmail",
+                {
+                  message_id:  retval[i].id,
+                  template_id: template_id
+                }
+              )
+            );
+          }
+
+          return Parse.Promise.when(promises);
+        }
+      ).then( // Save user
+        function saveUsers() {
+          console.log(arguments);
+
+          // Update user fields
+          user.emailVerified = true;
+          user.sentRegEmail  = true;
+          //user.regEmail      =
+            //{
+                 //"__type": "Pointer",
+              //"className": "Emails",
+               //"objectId": arguments[0].id // Doesn't matter... just save first id
+            //}
+          res.success(user);
+        },
+        function(error) { // Problems sending email(s)
+          // Handle gracefully
+          console.log("Error sending/saving email...", error);
+          user.emailVerified = false;
+          user.sentRegEmail  = false;
+          res.success(user);
+        }
+      );
+    } else {
+      // No need to change any fields
+      res.success(user);
+    }
+  }
+);
+
+
+
+
+
 Parse.Cloud.define("validateFields",
   // Checks if body is valid
-  //    @body:
+  //    @object: { username: "user", ... }
   function(req, res) {
-    var mg_keys = require("cloud/keys").mailgun;
-
     var ajax_counter = 2; // Number of fields to validate
     var rejections   = [];
 
@@ -57,53 +155,88 @@ Parse.Cloud.define("validateFields",
   }
 );
 
+
+
+
+
+
+
+/*                   *\
+ * ***************** *
+ * ***************** *
+ * Mailgun functions *
+ * ***************** *
+ * ***************** *
+\*                   */
+
 Parse.Cloud.define("emailUsers",
   // Emails a template to a user with a given aray of email addresses
   //    @user_emails: comma seperated list of email addresses
   //    @template_id:  ID of template being used
   function(req, res) {
-    var Mailgun = require("mailgun");
-    var all_keys = require("cloud/keys");
-    var  mg_keys = all_keys.mailgun;
-    Mailgun.initialize(mg_keys.domainURL, mg_keys.secretKey);
-
     // Set up EmailTemplates queries
     var EmailTemplates = Parse.Object.extend("EmailTemplates");
     var email_query = new Parse.Query(EmailTemplates);
+    var user_query  = new Parse.Query(Parse.User);
+    var emails      = req.params.user_emails.split(",");
 
-    // Look for requested email template
-    email_query.get(req.params.template_id)
-      .then(
-        function(retval) { // email_query for email template success
-          // Create email object for sending
+    if(req.params.user_emails === undefined) {
+      res.error({ code: 109, message: "Emails not specified" });
+    }
+
+    Parse.Promise.when(
+      email_query.get(req.params.template_id), // Look for email template
+      user_query.containedIn("email", emails)  // Filter only to users in emails
+    ).then(
+      function sendEmails(template, user_list) {
+        // @template:  template object
+        // @user_list: list of parse objects
+        var promises = [];
+
+        // For now, user list will just be email list...
+        // Need to work on filtering by array
+
+        //for(var i = 0; i < user_list.length; i++) {
           var email =
             {
               to:      req.params.user_emails,
-              from:    retval.get("sender"),
-              subject: retval.get("subject"),
-              text:    retval.get("strippedText"),
-              html:    retval.get("bodyHTML")
+              from:    template.get("sender"),
+              subject: template.get("subject"),
+              text:    template.get("strippedText"),
+              html:    template.get("bodyHTML")
             };
 
+          // TODO: Replace template variables here
+
           // Send email object
-          return Mailgun.sendEmail(email);
+          promises.push(Mailgun.sendEmail(email));
+        //}
+        return Parse.Promise.when(promises);
+      }
+
+    ).then(
+      function sanitize() { //
+        // Format for arguments: (part that we care about)
+        // arguments[0] = { data: { id: <123id> } };
+
+        var retval = [];
+
+        for(var i = 0; i < arguments.length; i++) {
+          // format for message_id response is <12345.12345@blah.com>
+          // Need to slice off ends to normalize
+          // message_id:  httpRes.data.id.slice(1, -1),
+
+          arguments[i].data.id = arguments[i].data.id.slice(1, -1);
+          retval.push( { id: arguments[i].data.id } );
         }
-      ).then(
-        function(httpRes) { // Email sent success
-          res.success(
-            {
-              // format for message_id response is <12345.12345@blah.com>
-              // Need to slice off ends to normalize
-              message_id:  httpRes.data.id.slice(1, -1),
-              template_id: req.params.template_id
-            }
-          );
-        },
-        function(error) {
-          // Error returns as http response
-          res.error(error.message);
-        }
-      );
+
+        res.success(retval); // Send all data returned from promises
+      },
+      function error(err) {
+        res.error(err);
+      }
+
+    );
   }
 );
 
@@ -112,9 +245,6 @@ Parse.Cloud.define("emailCreateWebHook",
   //    @hook_key
   //    @hook_url
   function(req, res) {
-    var ps_keys = require("cloud/keys").parse;
-    var mg_keys = require("cloud/keys").mailgun;
-
     // POST https://api:{mgKey}@api.mailgun.net/v3/domains/{domainName}/webhooks
     var mg_url = "https://api:" + mg_keys.secretKey + "@" + mg_keys.baseURL +
                  "/domains/"    + mg_keys.domainURL + "/webhooks";
@@ -145,8 +275,6 @@ Parse.Cloud.define("emailCreateTemplate",
   //    @body: returned when sending email from mailgun
   //    @sender:  Parse object to template
   function(req, res) {
-    var mg_keys = require("cloud/keys").mailgun;
-
     try {
       // Default values
       if(req.params.body === undefined) {
