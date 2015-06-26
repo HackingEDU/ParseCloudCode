@@ -35,9 +35,11 @@ Parse.Cloud.beforeSave(Parse.User, function(req, res) {
 
     var user = req.object;
     var template_id = undefined;
-    var sent_reg = user.sentRegEmail;
+    var emails_received = user.get("emailsReceived");
+    console.log(emails_received);
 
-    if(sent_reg == undefined || sent_reg == false) { // Object is newly created
+    // If no emails has ever been sent to this user...
+    if(emails_received === undefined || emails_received.length === 0) {
       // Set up template query
       var Templates = Parse.Object.extend("EmailTemplates");
       var tquery = new Parse.Query(Templates);
@@ -58,9 +60,13 @@ Parse.Cloud.beforeSave(Parse.User, function(req, res) {
       ).then( // Save email
         function saveEmails(retval) {
           // Email(s) sent successfully
+          // Immediately update user fields in case of save failure
           var promises = [];
 
+          var emails_received = [];
           for(var i = 0; i < retval.length; i++) {
+            emails_received.push(retval[i].id);
+
             promises.push(
               Parse.Cloud.run("saveEmail",
                 {
@@ -71,28 +77,19 @@ Parse.Cloud.beforeSave(Parse.User, function(req, res) {
             );
           }
 
+          user.set("emailsReceived", emails_received);
+          user.set("verifiedEmail",  true); // TODO: move this to a registration hook
+
           return Parse.Promise.when(promises);
         }
       ).then( // Save user
         function saveUsers() {
-          console.log(arguments);
-
-          // Update user fields
-          user.set("verifiedEmail", true);
-          user.set("sentRegEmail",  true);
-          user.regEmail      =
-            {
-                 "__type": "Pointer",
-              "className": "Emails",
-               "objectId": arguments[0].id // Doesn't matter... just save first id
-            }
           res.success(user);
         },
         function(error) { // Problems sending email(s)
           // Handle gracefully
           console.log("Error sending/saving email...", error);
-          user.set("verifiedEmail", false);
-          user.set("sentRegEmail",  false);
+          user.set("verifiedEmail", false); // Need to reverify email
           res.success(user);
         }
       );
