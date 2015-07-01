@@ -1,8 +1,8 @@
 module.exports = {} // Parse cloud definitions do not need to be exported
 
-var Mailgun  = require("mailgun");
+var  Mailgun = require("mailgun");
 var all_keys = require("cloud/keys");
-var ps_keys  = all_keys.parse;
+var  ps_keys = all_keys.parse;
 var  mg_keys = all_keys.mailgun;
 Mailgun.initialize(mg_keys.domainURL, mg_keys.secretKey);
 
@@ -35,21 +35,22 @@ Parse.Cloud.afterSave(Parse.User, function(req) {
     //    user: if !=undefined, user that made request
     //    }
     //  @res: {
-    //    res.succes()
+    //    res.success()
     //    res.error()
     //  }
     // console.log(req, res); Probably not a good idea
     Parse.Cloud.useMasterKey();
-    var acl = new Parse.ACL();
-    acl.setPublicReadAccess(true);
-    req.object.setACL(acl);
+    //var acl = new Parse.ACL();
+    //acl.setPublicReadAccess(true);
+    //acl.setPublicWriteAccess(true);
+    //req.object.setACL(acl);
 
     var user = req.object;
     var template_id = undefined;
     var emails_received = user.get("emailsReceived");
 
     // If no emails has ever been sent to this user...
-    if(emails_received === undefined || emails_received.length === 0) {
+    if(emails_received === undefined) {
       // Set up template query
       var Templates = Parse.Object.extend("EmailTemplates");
       var tquery = new Parse.Query(Templates);
@@ -60,17 +61,23 @@ Parse.Cloud.afterSave(Parse.User, function(req) {
         function sendEmail(retval) {
           template_id = retval.id;
 
-          return Parse.Cloud.run("emailUsers",
-            {
-              "user_emails": user.get("username"),
-              "template_id": template_id
-            }
-          );
+          if(user.get("username") === undefined) {
+            return Parse.Promise.error("Could not find username");
+          } else {
+            return Parse.Cloud.run("emailUsers",
+              {
+                "user_emails": user.get("username"),
+                "template_id": template_id
+              }
+            );
+          }
+
         }
       ).then( // Save email
         function saveEmails(retval) {
           // Email(s) sent successfully
           // Immediately update user fields in case of save failure
+          //    @retval: list of message ids that were sent
           var promises = [];
 
           var emails_received = [];
@@ -87,25 +94,65 @@ Parse.Cloud.afterSave(Parse.User, function(req) {
             );
           }
 
-          user.set("emailsReceived", emails_received);
-          user.set("verifiedEmail",  true); // TODO: move this to a registration hook
-          promises.push(user.save(null));
+          if(emails_received.length > 0) {
+            user.set("emailsReceived", emails_received);
+            user.set("verifiedEmail",  true);
+          } else {
+            user.set("emailsReceived", undefined);
+            user.set("verifiedEmail", false);
+          }
 
+          promises.push(user.save(null)); // TODO: Potentially recursive
           return Parse.Promise.when(promises);
         }
-      ).fail( // Save user
-        function(error) { // Problems sending email(s) or saving user
-          // TODO: seperate error checking for saving user... we really
-          // shouldn't lump these two together
-          console.log("Error sending/saving email...", error);
-          user.set("verifiedEmail", false); // Need to reverify email
-          res.success(user);
+      ).then(
+        function successes() { /* Successful, do nothing */ },
+        function errors() { // Problems sending email(s)
+          console.log("Error sending/saving email...", arguments);
         }
       );
+
     }
+
   }
 );
 
+
+
+Parse.Cloud.define("editUser",
+  function(req, res) {
+  // Dumbass workaround because of permissions
+  //    @id:
+  //    @hash:
+  //    @fields: value
+    Parse.Cloud.useMasterKey();
+
+    var id   = req.params.id;
+    var hash = req.params.hash;
+
+    var user_query = new Parse.Query(Parse.User);
+    if(id)        { user_query.equalTo("objectId", id); }
+    else if(hash) { user_query.equalTo("hash",   hash); }
+    else          { res.error("User not found."); }
+
+    user_query.first().then(
+      function saveUser(retval) {
+        for(var key in req.params.fields) {
+          retval.set(key, req.params.fields[key]);
+        }
+
+        return retval.save({});
+      }
+    ).then(
+      function success(retval) {
+        res.success(retval);
+      },
+      function error(err) {
+        res.error(err);
+      }
+    );
+  }
+);
 
 
 
@@ -115,12 +162,16 @@ Parse.Cloud.define("validateFields",
   //    @object: { username: "user", ... }
   function(req, res) {
     try {
-      var ajax_counter = 2; // Number of fields to validate
-      var rejections   = [];
+      var body = req.params.body;
+
+      // This function can only return when all fields have been validated
+      // Due to some of them requiring AJAX, we should handle with counters
+      var ajax_counter = 1; // Number of fields to validate
+      var rejections   = {};
 
       function checkEnd() {
         if(--ajax_counter <= 0) {
-          if(rejections.length > 0) {
+          if(Object.keys(rejections).length > 0) {
             res.error({
               code: 406,
               message: "Invalid fields",
@@ -130,40 +181,89 @@ Parse.Cloud.define("validateFields",
             res.success({
               code: 200,
               message: "All fields are valid",
-              fields: []
             });
           }
         }
       }
 
-      // Validate email
-      Parse.Cloud.httpRequest(
-        {
-          method: "GET",
-             url: "https://api:" + mg_keys.publicKey + "@" + mg_keys.baseURL +
-                   "/address/validate",
-          params: { address: req.params.body.email },
-        }
-      ).always(
-        function callback(response) {
-          if(!response.data.is_valid || response.data.is_valid === undefined) {
-            rejections.push("email");
-          }
-          checkEnd();
-        }
-      );
+      // Synchronous checks //
+      // Validate first/last name
+      // Just check for existence...
+      // TODO: finish when we use camelCase for validation
+
+      // Validate password
+      if(body.password.length < 6) {
+        rejections["password"] = "Password too short";
+      }
+
+
+      //// Validate phone (existence)
+      //if(req.params.phone === undefined || req.params.phone == "") {
+      if(body.phone === undefined || body.phone == "") {
+        rejections["phone"] = "Invalid phone number";
+      }
+
+      //// Validate school (existence)
+      if(body.school === undefined || body.school == "") {
+        rejections["school"] = "Invalid schools";
+      }
+
+      //// Validate date of birth (existence)
+      //// TODO: currently, field names use client side...
+
+      //// Validate other site usernames
+      //// Check for slashes, we only want the username
+
+      //// Validate if interested in job (existence)
+      if(body.job === undefined || body.job == "") {
+        rejections["job"] = "Interested in Job not populated";
+      }
+
+      //// Validate if interested in Terms of Service accepted (existence)
+      if(body.tos === undefined || body.tos == "") {
+        rejections["tos"] = "User did not agree to terms of service";
+      }
 
       // Validate school
       // TODO: school validation...
       // possibly another HTTP request? or an internal list of schools
       // yeah let's do that
-      checkEnd();
 
-      // TODO: additional fields
+
+      // AJAX REQUESTS
+      // Validate email
+      var user_query = new Parse.Query(Parse.User);
+      user_query.equalTo("username", body.email);
+
+      Parse.Promise.when(
+        user_query.first(),
+        Parse.Cloud.httpRequest(
+          {
+            method: "GET",
+               url: "https://api:" + mg_keys.publicKey + "@" + mg_keys.baseURL +
+                     "/address/validate",
+            params: { address: body.email },
+          }
+        )
+      ).then(
+        function(user_retval, email_retval) {
+          if(user_retval !== undefined) {
+            rejections["email"] = "Email already exists";
+          } else if(!email_retval.data.is_valid) {
+            rejections["email"] = "Email is invalid";
+          }
+
+          checkEnd();
+        },
+        function(err) {
+          // Last promise failed
+          console.log(err);
+          checkEnd();
+        }
+      );
 
     } catch(e) {
-      console.log("Validation exception occured.");
-      res.error(e);
+      res.error("Unknown exception occured.");
     }
   }
 );
@@ -187,66 +287,73 @@ Parse.Cloud.define("emailUsers",
   //    @user_emails: comma seperated list of email addresses
   //    @template_id:  ID of template being used
   function(req, res) {
+    if(req.params.user_emails === undefined) {
+      res.error({ code: 109, message: "Emails not specified" });
+    }
+
     // Set up EmailTemplates queries
     var EmailTemplates = Parse.Object.extend("EmailTemplates");
     var email_query = new Parse.Query(EmailTemplates);
     var user_query  = new Parse.Query(Parse.User);
     var emails      = req.params.user_emails.split(",");
 
-    if(req.params.user_emails === undefined) {
-      res.error({ code: 109, message: "Emails not specified" });
-    }
-
     Parse.Promise.when(
-      email_query.get(req.params.template_id), // Look for email template
-      user_query.equalTo("email", emails[0]).first()   // Filter only to users in emails
-      // TODO: hack, this only selects first email
+      email_query.get(req.params.template_id),       // Look for email template
+      user_query.containedIn("username", emails).find() // Filter only to users in emails[]
     ).then(
-      function sendEmails(template, user) {
+      function sendEmails(template, user_list) {
         // @template:  template object
         // @user: TODO: hack
         // @user_list: list of parse objects
         var promises = [];
 
-        // For now, user list will just be email list...
-        // Need to work on filtering by array
+        if(user_list.length == 0) {
+          return Parse.Promise.error("Could not find emails");
+        }
 
-        //for(var i = 0; i < user_list.length; i++) {
-          var email =
+        for(var i = 0; i < user_list.length; i++) {
+          var user = user_list[i];
+          // If user is unsubscribed...
+          if(user.get("unsubscribed")) {
+            return Parse.Promise.error("User has been unsubscribed.");
+          } else {
+            var email =
             {
-              to:      req.params.user_emails,
+              to:      user.get("username"),
               from:    template.get("sender"),
               subject: template.get("subject"),
               text:    template.get("strippedText"),
               html:    template.get("bodyHTML")
             };
 
-          // Retrieve all template variables specified in email
-          // Create template matching object
-          var keys = email.html.match(/%[a-zA-Z]+%/g);
-          var data = {};
+            // Retrieve all template variables specified in email
+            // Create template matching object
+            var keys = email.html.match(/%[a-zA-Z]+%/g);
+            if(keys === undefined || keys === null) keys = [];
+            var data = {};
 
-          for(var i = 0; i < keys.length; i++) {
-            // Slice off % at ends
-            var key = keys[i].slice(1, -1);
-            var val = user.get(key);
+            for(var i = 0; i < keys.length; i++) {
+              // Slice off % at ends
+              var key = keys[i].slice(1, -1);
+              var val = user.get(key);
 
-            // TODO: check what gets returned if user[key] doesn't exist
-            if(val === undefined || val == "") {
-              data[key] = "<b>" + keys[i] + "</b>";
-            } else {
-              data[key] = val;
+              // TODO: check what gets returned if user[key] doesn't exist
+              if(val === undefined || val == "") {
+                data[key] = "<b>" + keys[i] + "</b>";
+              } else {
+                data[key] = val;
+              }
             }
+
+            data["unsubscribe"] = mg_keys.unsubscribeURL + "?q=" + user.get("hash");
+            // Replace template variables
+            email.html = templateReplace(email.html, data);
+
+            // Send email object
+            promises.push(Mailgun.sendEmail(email));
           }
+        }
 
-          data["unsubscribe"] = mg_keys.unsubscribeURL +
-                                "?q=" + user.get("hash"); // TODO:
-          // Replace template variables
-          email.html = templateReplace(email.html, data);
-
-          // Send email object
-          promises.push(Mailgun.sendEmail(email));
-        //}
         return Parse.Promise.when(promises);
       }
 
@@ -485,6 +592,7 @@ Parse.Cloud.define("updateEmailEvent",
 
     event_query.first().then(
       function eventFound(event_query) {
+        if(event_query == null || event_query === undefined) return Parse.Promise.error();
         switch(body["event"]) {
           case "bounced":
             event_query.set({

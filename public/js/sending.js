@@ -34,7 +34,7 @@ function sendEmail(send_form) {
 
   // TODO: prompt before sending
   return $.ajax({
-    url: "/action/sendEmail",
+    url: "/actions/sendEmail",
     method: "POST",
     data: send_form.serialize()
   });

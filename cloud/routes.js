@@ -66,11 +66,14 @@ module.exports.actions = function(req, res) {
           res.status(200).send(retval);
         },
         function failed(err) {
-          res.status(406).send(e);
+          // err.message contains actual return data... <_<
+          err = err.message;
+          res.status(200).send(err);
         }
       );
       break;
     }
+
     case "/" + mg_keys.webhooks["newuser"]: {
       // Creates a new user based on req.body POST
       // req.body MUST have an email and a password field
@@ -80,7 +83,11 @@ module.exports.actions = function(req, res) {
 
         var user = new Parse.User();
         delete req.body.confirm_password;
-        user.set(req.body);
+
+        for(var key in req.body) {
+          user.set(key, req.body[key]);
+        }
+
         // TODO: generate registration url hash
         user.set("username", req.body.email); // Mandatory field... set same as email
         user.set("hash", md5(req.body.email));
@@ -126,8 +133,8 @@ module.exports.actions = function(req, res) {
               promises.push(
                 Parse.Cloud.run("saveEmail",
                   {
-                    message_id:  retval[i].message_id,
-                    template_id: retval[i].template_id
+                    message_id:  retval[i].id,
+                    template_id: req.body.template_id
                   }
                 )
               );
@@ -140,7 +147,7 @@ module.exports.actions = function(req, res) {
             res.status(200).send(retval);
           },
           function error(err) {
-            res.status(406).send(retval);
+            res.status(406).send(err);
           }
         );
       } catch(e) {
@@ -161,8 +168,7 @@ module.exports.actions = function(req, res) {
           }
         );
       } catch(e) {
-        console.log(e);
-        res.status(406).send(e);
+        res.status(500).send(e);
       }
       break;
     }
@@ -189,7 +195,7 @@ module.exports.actions = function(req, res) {
           }
         );
       } catch(e) {
-        res.status(406).send(e);
+        res.status(500).send(e);
       }
       break;
     }
@@ -200,7 +206,7 @@ module.exports.actions = function(req, res) {
         if(!req.xhr) throw { code: 407, message: "Internal server error" };
         res.status(200).send();
       } catch(e) {
-        res.status(406).send(e);
+        res.status(500).send(e);
       }
       break;
     }
@@ -317,14 +323,36 @@ module.exports.webhooks = function(req, res) {
     }
 
     case "/" + mg_keys.webhooks["unsubscribed"]: {
-      Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
-        function(retval) {
-          res.status(200).send();
+      // Update unsubscribed....
+      //    @req.body.q: user's registration hash
+      //Parse.Cloud.run("updateEmailEvent", { body: req.body }).then(
+        //function(retval) {
+          //res.status(200).send();
+        //},
+        //function(err) {
+          //res.status(406).send();
+        //}
+      //);
+      var user_query = new Parse.Query(Parse.User);
+      user_query.equalTo("hash", req.body.q);
+
+      // TODO: Add to mailgun unsubscribed list
+      Parse.Cloud.run("editUser",
+        { hash: req.body.q,
+          fields: { "unsubscribed": true }
+        }
+      ).then(
+        function success(retval) {
+          var email = retval.get("username");
+          res.status(200).send(email + " has been unsubscribed.");
         },
         function(err) {
-          res.status(406).send();
+          // Error finding user
+          console.log(err);
+          res.status(406).send("Could not find user or set as unsubscribed.");
         }
       );
+
       break;
     }
 
