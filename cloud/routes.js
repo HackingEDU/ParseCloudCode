@@ -82,30 +82,64 @@ module.exports.actions = function(req, res) {
         // TODO: verify post request is coming from hackingedu.co...
 
         var user = new Parse.User();
-        delete req.body.confirm_password;
+        delete req.body.confirm_password; // Detach confirm password, not masked
 
-        for(var key in req.body) {
-          user.set(key, req.body[key]);
+        // Detach resume_file and store as Parse.File
+        var resume = Parse.File(req.body.email, {base64: req.body.resume_file});
+        if(resume === undefined) {
+          resume = { save: function() { return Parse.Promise.as(undefined); } };
         }
+        delete req.body.resume;      // Detach resume field,
 
-        // TODO: generate registration url hash
-        user.set("username", req.body.email); // Mandatory field... set same as email
-        user.set("hash", md5(req.body.email));
-        user.signUp(null).then(
-          function success(user) {
+        // Populate user parse object
+        for(var key in req.body) { user.set(key, req.body[key]); }
+        user.unset("resume_file");
+        user.set("username",  req.body.email); // Mandatory field... set same as email
+        user.set("hash", md5(req.body.email)); // TODO: set hash to involve time
+
+        // Save both objects, then do it again in order to save file pointers
+        Parse.Promise.when(
+          user.signUp(null),
+          resume.save(null)
+        ).then(
+          function success(user_retval, resume_retval) {
+            // Cross reference user with file
+            user_retval.set("resume", resume_retval.url());
+
+            var file;
+            if(resume_retval !== undefined) {
+              // Create reference to file
+              var File = Parse.Object.extend("Files");
+              file = new File();
+              file.set("user", user_retval.id);
+              file.set("filename", resume_retval.url());
+            } else {
+              file = { save: function() { return Parse.Promise.as(undefined); } };
+            }
+
+            return Parse.Promise.when(
+              user_retval.save(null),
+              file.save(null)
+            );
+          }
+        ).then(
+          function successes(user_retval, file_retval) {
             res.status(200).send({
               code: 200,
               message: "User saved"
             });
           },
-          function rejectUser(err) {
-            res.status(406).send(err);
+          function errors(user_err, resume_err) {
+            res.status(406).send({
+              code: 406,
+              message: "Saving errors",
+              errors: [ user_err, resume_err ]
+            });
           }
-
         );
 
       } catch(e) {
-        console.log(e);
+        console.log("Exception occured.");
         res.status(400).send(e);
       }
       break;
