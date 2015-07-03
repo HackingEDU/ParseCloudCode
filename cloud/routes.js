@@ -57,23 +57,6 @@ var getSubClass = function(name, limit, offset) {
 
 module.exports.actions = function(req, res) {
   switch(req.path) {
-    case "/" + mg_keys.webhooks["validate"]: {
-      // Validate field
-      //  @: { username: "user", ... }
-      // req.body MUST have an email and a password field
-      Parse.Cloud.run("validateFields", { body: req.body }).then(
-        function success(retval) {
-          res.status(200).send(retval);
-        },
-        function failed(err) {
-          // err.message contains actual return data... <_<
-          err = err.message;
-          res.status(200).send(err);
-        }
-      );
-      break;
-    }
-
     case "/sendEmail": {
       // Retrieve a promise for a list of objects from Parse class
       //  @emails: comma separated email addresses to send
