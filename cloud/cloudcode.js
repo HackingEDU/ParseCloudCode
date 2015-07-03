@@ -256,8 +256,8 @@ Parse.Cloud.define("validateFields",
           checkEnd();
         },
         function(err) {
-          // Last promise failed
-          console.log(err);
+          console.log("Error making query or HTTP request");
+          console.log(arguments);
           checkEnd();
         }
       );
